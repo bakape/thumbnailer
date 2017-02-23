@@ -9,15 +9,9 @@ ffmpeg bindings.
 * make
 * pkg-config
 * pthread
-* ffmpeg >= 3.0 libraries (libavcodec, libavutil, libavformat) compiled with:
-    * libvpx
-    * libvorbis
-    * libopus
-    * libtheora
-    * libx264
-    * libmp3lame
-* GraphicsMagick compiler with:
-    * zlib
-    * libpng
-    * libjpeg
-    * postscript
+* ffmpeg >= 3.0 libraries (libavcodec, libavutil, libavformat):
+* GraphicsMagick
+
+NB: ffmpeg and GM should be compiled with all the dependency libraries for
+formats you want to process. On most Linux distributions you should be fine with
+the packages in the stock repositories.

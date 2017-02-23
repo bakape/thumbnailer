@@ -5,31 +5,87 @@ package thumbnailer
 // #include "video.h"
 import "C"
 import (
+	"bytes"
 	"errors"
 	"unsafe"
 )
 
+var (
+	// ErrNoStreams denotes no decodeable audio or video streams were found in
+	// a media container
+	ErrNoStreams = errors.New("no decodeable video or audio streams found")
+
+	// ErrGetFrame denotes an unknown failure to retrieve a video frame
+	ErrGetFrame = errors.New("failed to get frame")
+)
+
 // Thumbnail extracts the first frame of the video
-func (c *FFContext) Thumbnail() (
-	buf []byte, width uint, height uint, err error,
-) {
+func (c *FFContext) Thumbnail() (thumb Image, err error) {
 	ci, err := c.codecContext(FFVideo)
 	if err != nil {
 		return
 	}
 
 	var img C.struct_Buffer
-	eErr := C.extract_video_image(&img, c.avFormatCtx, ci.ctx, ci.stream)
+	ret := C.extract_video_image(&img, c.avFormatCtx, ci.ctx, ci.stream)
 	switch {
-	case eErr != 0:
-		err = ffError(eErr)
-		return
+	case ret != 0:
+		err = ffError(ret)
 	case img.data == nil:
-		err = errors.New("failed to get frame")
-		return
+		err = ErrGetFrame
 	default:
-		buf = C.GoBytes(unsafe.Pointer(img.data), C.int(img.size))
-		C.free(unsafe.Pointer(img.data))
-		return buf, uint(img.width), uint(img.height), nil
+		p := unsafe.Pointer(img.data)
+		thumb.Data = C.GoBytes(p, C.int(img.size))
+		C.free(p)
+		thumb.Width = uint(img.width)
+		thumb.Height = uint(img.height)
 	}
+	return
+}
+
+func processVideo(source Source, opts Options) (
+	src Source, thumb Thumbnail, err error,
+) {
+	src = source
+
+	c, err := NewFFContext(bytes.NewReader(src.Data))
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	src.HasAudio, err = c.HasStream(FFAudio)
+	if err != nil {
+		return
+	}
+	src.HasVideo, err = c.HasStream(FFVideo)
+	if err != nil {
+		return
+	}
+	if !src.HasAudio && !src.HasVideo {
+		err = ErrNoStreams
+		return
+	}
+
+	src.Length = c.Duration()
+	original := src.Data
+
+	// Can contain cover art
+	if !src.HasVideo {
+		if !c.HasCoverArt() {
+			return
+		}
+		src.Data = c.CoverArt()
+		src, thumb, err = processImage(src, opts)
+		src.Data = original
+		return
+	}
+
+	src.Image, err = c.Thumbnail()
+	if err != nil {
+		return
+	}
+	src, thumb, err = processImage(src, opts)
+	src.Data = original
+	return
 }

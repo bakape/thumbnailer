@@ -58,6 +58,9 @@ static int encode_frame(struct Buffer *img, const AVFrame const *frame)
 								  frame->height,
 								  1);
 	if (ret < 0) {
+		if (img->data) {
+			free(img->data);
+		}
 		return ret;
 	}
 	img->size = ret;

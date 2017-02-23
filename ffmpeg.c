@@ -2,7 +2,7 @@
 
 const int bufSize = 1 << 12;
 
-pthread_mutex_t codecMu;
+pthread_mutex_t codecMu = PTHREAD_MUTEX_INITIALIZER;
 
 // Initialize am AVFormatContext with the buffered file
 int create_context(AVFormatContext **ctx)
@@ -19,7 +19,7 @@ int create_context(AVFormatContext **ctx)
 		return err;
 	}
 
-	// Calls avcodec_open2 internally, so need lock
+	// Calls avcodec_open2 internally, so needs locking
 	err = pthread_mutex_lock(&codecMu);
 	if (err < 0) {
 		return err;

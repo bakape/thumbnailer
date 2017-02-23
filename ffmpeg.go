@@ -67,7 +67,7 @@ func (h *handlerMap) Get(k unsafe.Pointer) io.ReadSeeker {
 	h.RUnlock()
 	if !ok {
 		panic(fmt.Sprintf(
-			"No handlers instance found, according to pointer: %v",
+			"no handlers instance found, according to pointer: %v",
 			k,
 		))
 	}
@@ -153,7 +153,10 @@ func (c *FFContext) codecContext(typ FFMediaType) (codecInfo, error) {
 		stream C.int
 	)
 	err := C.codec_context(&ctx, &stream, c.avFormatCtx, int32(typ))
-	if err < 0 {
+	switch {
+	case err == C.AVERROR_STREAM_NOT_FOUND:
+		return codecInfo{}, ErrStreamNotFound
+	case err < 0:
 		return codecInfo{}, ffError(err)
 	}
 
@@ -176,6 +179,19 @@ func (c *FFContext) CodecName(typ FFMediaType) (string, error) {
 		err = ErrStreamNotFound
 	}
 	return "", err
+}
+
+// HasStream returns, if the file hash a decodeable stream of the passed type
+func (c *FFContext) HasStream(typ FFMediaType) (bool, error) {
+	_, err := c.codecContext(typ)
+	switch err {
+	case nil:
+		return true, nil
+	case ErrStreamNotFound:
+		return false, nil
+	default:
+		return false, err
+	}
 }
 
 // Duration returns the duration of the input

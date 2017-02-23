@@ -3,9 +3,14 @@ package thumbnailer
 // #include "audio.h"
 import "C"
 import (
-	"io"
+	"bytes"
+	"errors"
 	"unsafe"
 )
+
+// ErrNoCoverArt denotes no cover art has been found in the audio file, or a
+// multipurpose media container file contained only audio and no cover art.
+var ErrNoCoverArt = errors.New("no cover art found")
 
 // HasCoverArt return whether file has cover art in it
 func (c *FFContext) HasCoverArt() bool {
@@ -21,21 +26,21 @@ func (c *FFContext) CoverArt() []byte {
 	return C.GoBytes(unsafe.Pointer(img.data), img.size)
 }
 
-// DetectMP3 returns if file is an MP3 file
-func DetectMP3(rs io.ReadSeeker) (bool, error) {
-	c, err := NewFFContext(rs)
+func processAudio(src Source, opts Options) (Source, Thumbnail, error) {
+	c, err := NewFFContext(bytes.NewReader(src.Data))
 	if err != nil {
-		// Invalid file that can't even have a context created
-		if fferr, ok := err.(ffError); ok && fferr.Code() == -1 {
-			return false, nil
-		}
-		return false, err
+		return src, Thumbnail{}, err
 	}
 	defer c.Close()
 
-	codec, err := c.CodecName(FFAudio)
-	if err != nil {
-		return false, err
+	src.Length = c.Duration()
+	if !c.HasCoverArt() {
+		return src, Thumbnail{}, ErrNoCoverArt
 	}
-	return codec == "mp3", nil
+
+	original := src.Data
+	src.Data = c.CoverArt()
+	src, thumb, err := processImage(src, opts)
+	src.Data = original
+	return src, thumb, err
 }

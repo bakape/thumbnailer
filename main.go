@@ -4,22 +4,10 @@
 package thumbnailer
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
-
-	"github.com/h2non/filetype"
-	"gopkg.in/h2non/filetype.v1/types"
 )
-
-var (
-	// Special file type processors
-	mimeProcessors = map[string]MIMEProcessor{}
-)
-
-// MIMEProcessor is a specialized file processor for a specific file type
-type MIMEProcessor func(Source, Options) (Source, Thumbnail, error)
 
 // Thumbnail stores a processed thumbnail.
 // Take note, that in case an audio file with no cover art is passed, this
@@ -43,7 +31,7 @@ type Source struct {
 	// Mime type of the source file
 	Mime string
 
-	// Canonical file extension of the source file
+	// Canonical file extension
 	Extension string
 
 	Image
@@ -70,22 +58,6 @@ type Options struct {
 	// MIME types to accept for thumbnailing. If nil, all MIME types will be
 	// processed.
 	AcceptedMimeTypes map[string]bool
-}
-
-// UnsupportedMIMEError indicates the MIME type of the file could not be
-// detected as a supported type or was not in the AcceptedMimeTypes list, if
-// defined.
-type UnsupportedMIMEError string
-
-func (u UnsupportedMIMEError) Error() string {
-	return fmt.Sprintf("unsupported MIME type: %s", string(u))
-}
-
-// RegisterProcessor registers a file processor for a specific MIME type.
-// Can be used to add support for additional MIME types or as an override.
-// Not safe to use concurrently with file processing.
-func RegisterProcessor(mime string, fn MIMEProcessor) {
-	mimeProcessors[mime] = fn
 }
 
 // Process generates a thumbnail from a file of unknown type and performs some
@@ -130,71 +102,4 @@ func ProcessBuffer(buf []byte, opts Options) (
 
 	src.Data = buf
 	return processFile(src, opts)
-}
-
-// Can be passed either the full read file as []byte or io.ReadSeeker
-func detectMimeType(buf []byte, rs io.ReadSeeker, accepted map[string]bool) (
-	mime, ext string, err error,
-) {
-	var typ types.Type
-	if buf != nil {
-		typ, err = filetype.Match(buf)
-	} else {
-		typ, err = filetype.MatchReader(rs)
-	}
-	if err != nil {
-		err = UnsupportedMIMEError(err.Error())
-		return
-	}
-	mime = typ.MIME.Value
-	ext = typ.Extension
-
-	// Check if MIME is accepted, if specified
-	if accepted != nil && !accepted[mime] {
-		err = UnsupportedMIMEError(mime)
-		return
-	}
-
-	return
-}
-
-func processFile(src Source, opts Options) (Source, Thumbnail, error) {
-	override := mimeProcessors[src.Mime]
-	if override != nil {
-		return override(src, opts)
-	}
-
-	switch src.Mime {
-	case
-		"application/pdf",
-		"image/jpeg",
-		"image/png",
-		"image/gif",
-		"image/webp",
-		"image/tiff",
-		"image/bmp",
-		"image/vnd.adobe.photoshop",
-		"image/x-icon":
-		return processImage(src, opts)
-	case
-		"audio/midi",
-		"audio/mpeg",
-		"audio/m4a",
-		"audio/ogg",
-		"audio/x-flac",
-		"audio/x-wav":
-		return processAudio(src, opts)
-	case
-		"video/mp4",
-		"video/x-matroska",
-		"video/webm",
-		"video/quicktime",
-		"video/x-msvideo",
-		"video/x-ms-wmv",
-		"video/mpeg",
-		"flv", "video/x-flv":
-		return processVideo(src, opts)
-	default:
-		return src, Thumbnail{}, UnsupportedMIMEError(src.Mime)
-	}
 }

@@ -4,6 +4,9 @@ Package thumbnailer provides a more efficient image/video/audio/PDF thumbnailer
 than available with native Go processing libraries through GraphicsMagic and
 ffmpeg bindings.
 
+
+For a comprehensive list of file formats supported by default, check a the `matchers` slice in `mime.go`.
+
 ##Dependencies
 * GCC or Clang
 * make

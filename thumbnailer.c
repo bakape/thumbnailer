@@ -41,21 +41,24 @@ int thumbnail(struct Buffer *src,
 	src->height = img->rows;
 
 	// Validate dimentions
-	if (strcmp(img->magick, "PDF")) {
-		if (img->columns > opts.maxSrcDims.width) {
+	const unsigned long maxW = opts.maxSrcDims.width;
+	const unsigned long maxH = opts.maxSrcDims.height;
+	if (maxW && maxH && strcmp(img->magick, "PDF")) {
+		if (img->columns > maxW) {
 			err = 2;
 			goto end;
 		}
-		if (img->rows > opts.maxSrcDims.height) {
+		if (img->rows > maxH) {
 			err = 3;
 			goto end;
 		}
 	}
 
+	const unsigned long thumbW = opts.thumbDims.width;
+	const unsigned long thumbH = opts.thumbDims.height;
+
 	// Image already fits thumbnail
-	const bool isSmall = img->columns <= opts.thumbDims.width &&
-						 img->rows <= opts.thumbDims.height;
-	if (isSmall) {
+	if (img->columns <= thumbW && img->rows <= thumbH) {
 		thumb->img.width = img->columns;
 		thumb->img.height = img->rows;
 		err = writeThumb(img, thumb, opts, ex);
@@ -64,12 +67,12 @@ int thumbnail(struct Buffer *src,
 
 	// Maintain aspect ratio
 	if (img->columns >= img->rows) {
-		scale = (double)(img->columns) / (double)(opts.thumbDims.width);
+		scale = (double)(img->columns) / (double)(thumbW);
 	} else {
-		scale = (double)(img->rows) / (double)(opts.thumbDims.height);
+		scale = (double)(img->rows) / (double)(thumbH);
 	}
-	thumb->img.width = (unsigned long)(img->columns / scale);
-	thumb->img.height = (unsigned long)(img->rows / scale);
+	thumb->img.width = (unsigned long)((double)img->columns / scale);
+	thumb->img.height = (unsigned long)((double)img->rows / scale);
 
 	// Subsample to 4 times the thumbnail size. A decent enough compromise
 	// between quality and performance for images arround the thumbnail size

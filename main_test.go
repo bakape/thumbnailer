@@ -1,65 +1,112 @@
 package thumbnailer
 
-// func TestThumbnail(t *testing.T) {
-// 	t.Parallel()
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
-// 	for _, ext := range [...]string{"png", "jpg", "gif", "pdf"} {
-// 		buf := readSample(t, "sample."+ext)
+var samples = []string{
+	"no_cover.mp4",
+	"no_sound.mkv",
+	"no_sound.ogg",
+	"sample.gif",
+	"sample.psd",
+	"with_sound.avi",
+	"no_cover.flac",
+	"no_cover.ogg",
+	"no_sound.mov",
+	"no_sound.webm",
+	"sample.jpg",
+	"sample.tiff",
+	"with_cover.mp3",
+	"with_sound.mkv",
+	"with_sound.ogg",
+	"no_sound.avi",
+	"no_sound.mp4",
+	"no_sound.wmv",
+	"sample.pdf",
+	"sample.webp",
+	"with_cover.mp4",
+	"with_sound.mov",
+	"with_sound.webm",
+	"no_cover.mp3",
+	"no_sound.flv",
+	"sample.bmp",
+	"sample.png",
+	"with_cover.flac",
+	"with_cover.ogg",
+	"with_sound.mp4",
+}
 
-// 		opts := Options{
-// 			Width:           150,
-// 			Height:          150,
-// 			JPEGCompression: 90,
-// 		}
-// 		if ext == "jpg" {
-// 			opts.OutputType = JPEG
-// 		}
-// 		buf, w, h, err := Thumbnail(buf, opts)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+func TestThumbnail(t *testing.T) {
+	t.Parallel()
 
-// 		t.Logf("%s thumb dims: %dx%d", ext, w, h)
+	opts := Options{
+		JPEGQuality: 90,
+		ThumbDims:   Dims{150, 150},
+	}
 
-// 		var thumbExt string
-// 		if ext == "jpg" {
-// 			thumbExt = "jpg"
-// 		} else {
-// 			thumbExt = "png"
-// 		}
-// 		writeSample(t, fmt.Sprintf(`thumb_%s.%s`, ext, thumbExt), buf)
-// 	}
-// }
+	for i := range samples {
+		sample := samples[i]
+		t.Run(sample, func(t *testing.T) {
+			t.Parallel()
 
-// func readSample(t *testing.T, name string) []byte {
-// 	buf, err := ioutil.ReadFile(filepath.Join("testdata", name))
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	return buf
-// }
+			src, thumb, err := Process(openSample(t, sample), opts)
+			if err != nil && err != ErrNoCoverArt {
+				t.Fatal(err)
+			}
 
-// func writeSample(t *testing.T, name string, buf []byte) {
-// 	path := filepath.Join("testdata", name)
+			if err != ErrNoCoverArt {
+				var ext string
+				if thumb.IsPNG {
+					ext = "png"
+				} else {
+					ext = "jpg"
+				}
+				name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
+				writeSample(t, name, thumb.Data)
+			}
 
-// 	// Remove previous file, if any
-// 	_, err := os.Stat(path)
-// 	switch {
-// 	case os.IsExist(err):
-// 		if err := os.Remove(path); err != nil {
-// 			t.Fatal(err)
-// 		}
-// 	case os.IsNotExist(err):
-// 	case err == nil:
-// 	default:
-// 		t.Fatal(err)
-// 	}
+			src.Data = nil
+			thumb.Data = nil
+			t.Logf("src:   %v\n", src)
+			t.Logf("thumb: %v\n", thumb)
+		})
+	}
+}
 
-// 	err = ioutil.WriteFile(path, buf, 0600)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+func openSample(t *testing.T, name string) *os.File {
+	f, err := os.Open(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+func writeSample(t *testing.T, name string, buf []byte) {
+	path := filepath.Join("testdata", name)
+
+	// Remove previous file, if any
+	_, err := os.Stat(path)
+	switch {
+	case os.IsExist(err):
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+	case os.IsNotExist(err):
+	case err == nil:
+	default:
+		t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(path, buf, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 // func TestErrorPassing(t *testing.T) {
 // 	t.Parallel()

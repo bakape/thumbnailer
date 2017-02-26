@@ -5,7 +5,7 @@ than available with native Go processing libraries through GraphicsMagic and
 ffmpeg bindings.
 
 
-For a comprehensive list of file formats supported by default, check a the `matchers` slice in `mime.go`.
+For a comprehensive list of file formats supported by default, check the `matchers` slice in `mime.go`.
 
 ##Dependencies
 * GCC or Clang

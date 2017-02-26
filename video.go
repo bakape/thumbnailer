@@ -54,6 +54,8 @@ func processVideo(source Source, opts Options) (
 	}
 	defer c.Close()
 
+	src.Length = c.Duration()
+
 	src.HasAudio, err = c.HasStream(FFAudio)
 	if err != nil {
 		return
@@ -62,22 +64,12 @@ func processVideo(source Source, opts Options) (
 	if err != nil {
 		return
 	}
-	if !src.HasAudio && !src.HasVideo {
-		err = ErrNoStreams
-		return
-	}
-
-	src.Length = c.Duration()
-	original := src.Data
-
-	// Can contain cover art
 	if !src.HasVideo {
-		if !c.HasCoverArt() {
-			return
+		if !src.HasAudio {
+			err = ErrNoStreams
 		}
-		src.Data = c.CoverArt()
-		src, thumb, err = processImage(src, opts)
-		src.Data = original
+		// As of writing ffmpeg does not support cover art in neither MP4-like
+		// containers or OGG, so consider these unthumbnailable.
 		return
 	}
 
@@ -85,6 +77,7 @@ func processVideo(source Source, opts Options) (
 	if err != nil {
 		return
 	}
+	original := src.Data
 	src, thumb, err = processImage(src, opts)
 	src.Data = original
 	return

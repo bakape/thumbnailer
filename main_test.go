@@ -29,7 +29,6 @@ var samples = []string{
 	"no_sound.wmv",
 	"sample.pdf",
 	"sample.webp",
-	"with_cover.mp4",
 	"with_sound.mov",
 	"with_sound.webm",
 	"no_cover.mp3",
@@ -37,7 +36,6 @@ var samples = []string{
 	"sample.bmp",
 	"sample.png",
 	"with_cover.flac",
-	"with_cover.ogg",
 	"with_sound.mp4",
 }
 

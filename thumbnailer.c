@@ -41,14 +41,14 @@ int thumbnail(struct Buffer *src,
 	src->height = img->rows;
 
 	// Validate dimentions
-	const unsigned long maxW = opts.maxSrcDims.width;
-	const unsigned long maxH = opts.maxSrcDims.height;
-	if (maxW && maxH && strcmp(img->magick, "PDF")) {
-		if (img->columns > maxW) {
+	if (strcmp(img->magick, "PDF")) {
+		const unsigned long maxW = opts.maxSrcDims.width;
+		const unsigned long maxH = opts.maxSrcDims.height;
+		if (maxW && img->columns > maxW) {
 			err = 2;
 			goto end;
 		}
-		if (img->rows > maxH) {
+		if (maxH && img->rows > maxH) {
 			err = 3;
 			goto end;
 		}

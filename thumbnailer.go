@@ -14,7 +14,7 @@ import (
 
 // Thumbnailing errors
 var (
-	ErrTooWide             = errors.New("image too wide") // No such thing
+	ErrTooWide             = errors.New("image too wide")
 	ErrTooTall             = errors.New("image too tall")
 	ErrThumbnailingUnknown = errors.New("unknown thumbnailing error")
 )

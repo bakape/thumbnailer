@@ -22,7 +22,7 @@ int thumbnail(struct Buffer *src,
 
 	// If width and height are already defined, then a frame from ffmpeg has
 	// been passed
-	if (src->width != 0 && src->height != 0) {
+	if (src->width && src->height) {
 		strcpy(info->magick, "YUV");
 		char *buf = malloc(128);
 		int over = snprintf(buf, 128, "%lux%lu", src->width, src->height);
@@ -34,7 +34,7 @@ int thumbnail(struct Buffer *src,
 	}
 
 	img = BlobToImage(info, src->data, src->size, ex);
-	if (img == NULL) {
+	if (!img) {
 		goto end;
 	}
 	src->width = img->columns;
@@ -78,33 +78,33 @@ int thumbnail(struct Buffer *src,
 	// between quality and performance for images arround the thumbnail size
 	// and much bigger ones.
 	sampled = SampleImage(img, thumb->img.width * 4, thumb->img.height * 4, ex);
-	if (sampled == NULL) {
+	if (!sampled) {
 		goto end;
 	}
 
 	// Scale to thumbnail size
 	scaled = ResizeImage(
 		sampled, thumb->img.width, thumb->img.height, BoxFilter, 1, ex);
-	if (scaled == NULL) {
+	if (!scaled) {
 		goto end;
 	}
 
 	err = writeThumb(scaled, thumb, opts, ex);
 
 end:
-	if (img != NULL) {
+	if (img) {
 		DestroyImage(img);
 	}
-	if (info != NULL) {
+	if (info) {
 		DestroyImageInfo(info);
 	}
-	if (sampled != NULL) {
+	if (sampled) {
 		DestroyImage(sampled);
 	}
-	if (scaled != NULL) {
+	if (scaled) {
 		DestroyImage(scaled);
 	}
-	if (err == 0) {
+	if (!err) {
 		return thumb->img.data == NULL;
 	}
 	return err;
@@ -158,7 +158,7 @@ hasTransparency(const Image const *img, bool *needPNG, ExceptionInfo *ex)
 	for (unsigned long i = 0; i < img->rows; i++) {
 		const PixelPacket *packets =
 			AcquireImagePixels(img, 0, i, img->columns, 1, ex);
-		if (packets == NULL) {
+		if (!packets) {
 			return 1;
 		}
 		for (unsigned long j = 0; j < img->columns; j++) {

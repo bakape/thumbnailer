@@ -74,8 +74,8 @@ var matchers = []Matcher{
 }
 
 var (
-	// Special file type processors
-	mimeProcessors = map[string]Processor{}
+	// User-defined MIME type processors
+	overrideProcessors = map[string]Processor{}
 )
 
 // Processor is a specialized file processor for a specific file type
@@ -179,7 +179,7 @@ func RegisterMatcher(m Matcher) {
 // Can be used to add support for additional MIME types or as an override.
 // Not safe to use concurrently with file processing.
 func RegisterProcessor(mime string, fn Processor) {
-	mimeProcessors[mime] = fn
+	overrideProcessors[mime] = fn
 }
 
 // Can be passed either the full read file as []byte or io.ReadSeeker
@@ -220,7 +220,7 @@ func detectMimeType(buf []byte, rs io.ReadSeeker, accepted map[string]bool) (
 }
 
 func processFile(src Source, opts Options) (Source, Thumbnail, error) {
-	override := mimeProcessors[src.Mime]
+	override := overrideProcessors[src.Mime]
 	if override != nil {
 		return override(src, opts)
 	}

@@ -29,7 +29,7 @@ var matchers = []Matcher{
 		[]byte("OggS\x00"),
 		[]byte("\x4F\x67\x67\x53\x00"),
 	},
-	&webmOrMKVSig{},
+	MatcherFunc(matchWebmOrMKV),
 	&exactSig{"pdf", "application/pdf", []byte("%PDF-")},
 	&maskedSig{
 		"mp3",
@@ -37,7 +37,7 @@ var matchers = []Matcher{
 		[]byte("\xFF\xFF\xFF"),
 		[]byte("ID3"),
 	},
-	&mp4Sig{},
+	MatcherFunc(matchMP4),
 	&exactSig{"aac", "audio/aac", []byte("ÿñ")},
 	&exactSig{"aac", "audio/aac", []byte("ÿù")},
 	&exactSig{"bmp", "image/bmp", []byte("BM")},
@@ -87,6 +87,14 @@ type Matcher interface {
 	Match([]byte) (mime string, extension string)
 }
 
+// MatcherFunc is an adapter that allows using functions as Matcher
+type MatcherFunc func([]byte) (string, string)
+
+// Match implements Matcher
+func (fn MatcherFunc) Match(data []byte) (string, string) {
+	return fn(data)
+}
+
 type exactSig struct {
 	ext, mime string
 	sig       []byte
@@ -117,9 +125,7 @@ func (m *maskedSig) Match(data []byte) (string, string) {
 	return m.mime, m.ext
 }
 
-type webmOrMKVSig struct{}
-
-func (webmOrMKVSig) Match(data []byte) (string, string) {
+func matchWebmOrMKV(data []byte) (string, string) {
 	switch {
 	case len(data) < 8 || !bytes.HasPrefix(data, []byte("\x1A\x45\xDF\xA3")):
 		return "", ""
@@ -132,9 +138,7 @@ func (webmOrMKVSig) Match(data []byte) (string, string) {
 	}
 }
 
-type mp4Sig struct{}
-
-func (mp4Sig) Match(data []byte) (string, string) {
+func matchMP4(data []byte) (string, string) {
 	if len(data) < 12 {
 		return "", ""
 	}

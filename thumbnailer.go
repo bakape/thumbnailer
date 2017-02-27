@@ -63,7 +63,7 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 		}
 	}()
 	var err error
-	if ex.reason != nil {
+	if ex.reason != nil && ex.severity >= 400 {
 		err = extractError(ex)
 	} else {
 		switch errCode {

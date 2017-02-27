@@ -7,6 +7,8 @@ import (
 	"io"
 )
 
+const sniffSize = 512
+
 // Matching code partially adapted from "net/http/sniff.go"
 
 // Mime type prefix magic number matchers and canonical extensions
@@ -186,27 +188,36 @@ func RegisterProcessor(mime string, fn Processor) {
 	overrideProcessors[mime] = fn
 }
 
+// DetectMIME  detects the MIME typ of the r. r must be at starting position.
+// accepted, if not nil, specifies MIME types to not reject with
+// UnsupportedMIMEError.
+func DetectMIME(r io.Reader, accepted map[string]bool) (string, string, error) {
+	buf := make([]byte, sniffSize)
+	read, err := r.Read(buf)
+	if err != nil {
+		return "", "", err
+	}
+	if read < sniffSize {
+		buf = buf[:read]
+	}
+	return detectMimeType(buf, accepted)
+}
+
+// DetectMIMEBuffer is like DetectMIME, but accepts a []byte slice already
+// loaded into memory.
+func DetectMIMEBuffer(buf []byte, accepted map[string]bool) (
+	string, string, error,
+) {
+	if len(buf) > sniffSize {
+		buf = buf[:sniffSize]
+	}
+	return detectMimeType(buf, accepted)
+}
+
 // Can be passed either the full read file as []byte or io.ReadSeeker
-func detectMimeType(buf []byte, rs io.ReadSeeker, accepted map[string]bool) (
+func detectMimeType(buf []byte, accepted map[string]bool) (
 	mime, ext string, err error,
 ) {
-	const size = 512
-	if buf == nil {
-		buf = make([]byte, size)
-		var read int
-		read, err = rs.Read(buf)
-		if err != nil {
-			return
-		}
-		if read < size {
-			buf = buf[:read]
-		}
-	} else {
-		if len(buf) > size {
-			buf = buf[:size]
-		}
-	}
-
 	for _, m := range matchers {
 		mime, ext = m.Match(buf)
 		if mime != "" {

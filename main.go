@@ -65,11 +65,7 @@ type Options struct {
 func Process(rs io.ReadSeeker, opts Options) (
 	src Source, thumb Thumbnail, err error,
 ) {
-	src.Mime, src.Extension, err = detectMimeType(
-		nil,
-		rs,
-		opts.AcceptedMimeTypes,
-	)
+	src.Mime, src.Extension, err = DetectMIME(rs, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}
@@ -91,11 +87,7 @@ func Process(rs io.ReadSeeker, opts Options) (
 func ProcessBuffer(buf []byte, opts Options) (
 	src Source, thumb Thumbnail, err error,
 ) {
-	src.Mime, src.Extension, err = detectMimeType(
-		buf,
-		nil,
-		opts.AcceptedMimeTypes,
-	)
+	src.Mime, src.Extension, err = DetectMIMEBuffer(buf, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}

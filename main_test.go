@@ -52,7 +52,10 @@ func TestProcess(t *testing.T) {
 		t.Run(sample, func(t *testing.T) {
 			t.Parallel()
 
-			src, thumb, err := Process(openSample(t, sample), opts)
+			f := openSample(t, sample)
+			defer f.Close()
+
+			src, thumb, err := Process(f, opts)
 			if err != nil && err != ErrNoCoverArt {
 				t.Fatal(err)
 			}
@@ -109,7 +112,10 @@ func writeSample(t *testing.T, name string, buf []byte) {
 func TestErrorPassing(t *testing.T) {
 	t.Parallel()
 
-	_, _, err := Process(openSample(t, "sample.txt"), Options{
+	f := openSample(t, "sample.txt")
+	defer f.Close()
+
+	_, _, err := Process(f, Options{
 		ThumbDims: Dims{
 			Width:  150,
 			Height: 150,
@@ -172,7 +178,11 @@ func TestDimensionValidation(t *testing.T) {
 				},
 				JPEGQuality: 90,
 			}
-			_, _, err := Process(openSample(t, c.file), opts)
+
+			f := openSample(t, c.file)
+			defer f.Close()
+
+			_, _, err := Process(f, opts)
 			if err != c.err {
 				t.Fatalf("unexpected error: `%s` : `%s`", c.err, err)
 			}
@@ -183,7 +193,10 @@ func TestDimensionValidation(t *testing.T) {
 func TestSourceAlreadyThumbSize(t *testing.T) {
 	t.Parallel()
 
-	_, thumb, err := Process(openSample(t, "too small.png"), Options{
+	f := openSample(t, "too small.png")
+	defer f.Close()
+
+	_, thumb, err := Process(f, Options{
 		ThumbDims: Dims{
 			Width:  150,
 			Height: 150,

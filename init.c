@@ -8,6 +8,8 @@ void magickInit()
 {
 	InitializeMagick(NULL);
 
+#ifndef _WIN32
+
 #if defined(SIGCHLD)
 	fixSignal(SIGCHLD);
 #endif
@@ -41,8 +43,11 @@ void magickInit()
 #if defined(SIGXFSZ)
 	fixSignal(SIGXFSZ);
 #endif
+
+#endif
 }
 
+#ifndef _WIN32
 // Add the SA_ONSTACK flag to a listened on signal to play nice with the Go
 // runtime
 static void fixSignal(int signum)
@@ -56,3 +61,4 @@ static void fixSignal(int signum)
 	st.sa_flags |= SA_ONSTACK;
 	sigaction(signum, &st, NULL);
 }
+#endif

@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-const sniffSize = 512
+const sniffSize = 4 << 10
 
 // Matching code partially adapted from "net/http/sniff.go"
 
@@ -73,6 +73,7 @@ var matchers = []Matcher{
 		[]byte("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
 		[]byte("MThd\x00\x00\x00\x06"),
 	},
+	MatcherFunc(matchMP3),
 }
 
 var (
@@ -163,6 +164,25 @@ func matchMP4(data []byte) (string, string) {
 		}
 	}
 	return "", ""
+}
+
+// MP3 is a retarded standard, that will not always even have a magic number.
+// Need to detect with FFMPEG as a last resort.
+func matchMP3(data []byte) (mime string, ext string) {
+	c, err := NewFFContext(bytes.NewReader(data))
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	codec, err := c.CodecName(FFAudio)
+	if err != nil {
+		return
+	}
+	if codec == "mp3" {
+		return "audio/mpeg", "mp3"
+	}
+	return
 }
 
 // UnsupportedMIMEError indicates the MIME type of the file could not be

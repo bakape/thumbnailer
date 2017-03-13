@@ -32,6 +32,7 @@ var samples = []string{
 	"with_sound.mov",
 	"with_sound.webm",
 	"no_cover.mp3",
+	"no_magic.mp3", // No magic numbers
 	"no_sound.flv",
 	"sample.bmp",
 	"sample.png",

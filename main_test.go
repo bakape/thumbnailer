@@ -224,18 +224,10 @@ func TestMetadataExtraction(t *testing.T) {
 	if err != nil && err != ErrNoCoverArt {
 		t.Fatal(err)
 	}
-	if src.Artist == nil {
-		t.Errorf("expected artist, found nil")
-		return
+	if src.Artist != "Test Artist" {
+		t.Errorf("unexpected artist: Test Artist : %s", src.Artist)
 	}
-	if src.Title == nil {
-		t.Errorf("expected title, found nil")
-		return
-	}
-	if *src.Artist != "Test Artist" {
-		t.Errorf("unexpected artist: Test Artist : %s", *src.Artist)
-	}
-	if *src.Title != "Test Title" {
-		t.Errorf("unexpected title: Test Title: %s", *src.Title)
+	if src.Title != "Test Title" {
+		t.Errorf("unexpected title: Test Title: %s", src.Title)
 	}
 }

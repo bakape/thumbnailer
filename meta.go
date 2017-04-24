@@ -7,12 +7,10 @@ import "C"
 func (c *FFContext) ExtractMeta(src *Source) {
 	meta := C.retrieve_meta(c.avFormatCtx)
 	if meta.title != nil {
-		title := C.GoString(meta.title)
-		src.Title = &title
+		src.Title = C.GoString(meta.title)
 	}
 
 	if meta.artist != nil {
-		artist := C.GoString(meta.artist)
-		src.Artist = &artist
+		src.Artist = C.GoString(meta.artist)
 	}
 }

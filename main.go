@@ -32,7 +32,7 @@ type Source struct {
 	Mime string
 
 	// optional metadata
-	Title, Artist *string
+	Title, Artist string
 
 	// Canonical file extension
 	Extension string

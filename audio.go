@@ -34,6 +34,8 @@ func processAudio(src Source, opts Options) (Source, Thumbnail, error) {
 	defer c.Close()
 
 	src.Length = c.Duration()
+	c.ExtractMeta(&src)
+
 	if !c.HasCoverArt() {
 		return src, Thumbnail{}, ErrNoCoverArt
 	}

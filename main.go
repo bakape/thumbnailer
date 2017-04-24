@@ -31,6 +31,9 @@ type Source struct {
 	// Mime type of the source file
 	Mime string
 
+	// optional metadata
+	Title, Artist *string
+
 	// Canonical file extension
 	Extension string
 

@@ -213,3 +213,29 @@ func TestSourceAlreadyThumbSize(t *testing.T) {
 		t.Errorf("unexpected height: 150: %d", thumb.Height)
 	}
 }
+
+func TestMetadataExtraction(t *testing.T) {
+	t.Parallel()
+
+	f := openSample(t, "title.mp3")
+	defer f.Close()
+
+	src, _, err := Process(f, Options{})
+	if err != nil && err != ErrNoCoverArt {
+		t.Fatal(err)
+	}
+	if src.Artist == nil {
+		t.Errorf("expected artist, found nil")
+		return
+	}
+	if src.Title == nil {
+		t.Errorf("expected title, found nil")
+		return
+	}
+	if *src.Artist != "Test Artist" {
+		t.Errorf("unexpected artist: Test Artist : %s", *src.Artist)
+	}
+	if *src.Title != "Test Title" {
+		t.Errorf("unexpected title: Test Title: %s", *src.Title)
+	}
+}

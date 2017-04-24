@@ -73,6 +73,8 @@ func processVideo(source Source, opts Options) (
 		return
 	}
 
+	c.ExtractMeta(&src)
+
 	src.Image, err = c.Thumbnail()
 	if err != nil {
 		return

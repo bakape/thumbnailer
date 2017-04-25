@@ -41,6 +41,7 @@ func processAudio(src Source, opts Options) (Source, Thumbnail, error) {
 	}
 
 	original := src.Data
+	src.HasAudio = true
 	src.Data = c.CoverArt()
 	src, thumb, err := processImage(src, opts)
 	src.Data = original

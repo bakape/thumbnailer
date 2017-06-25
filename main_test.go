@@ -38,6 +38,7 @@ var samples = []string{
 	"sample.png",
 	"with_cover.flac",
 	"with_sound.mp4",
+	"odd_dimensions.webm", // Unconventional dims for a YUV stream
 }
 
 func TestProcess(t *testing.T) {

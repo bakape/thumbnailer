@@ -65,11 +65,11 @@ func processVideo(source Source, opts Options) (
 		return
 	}
 	if !src.HasVideo {
+		// As of writing ffmpeg does not support cover art in neither MP4-like
+		// containers or OGG, so consider these unthumbnailable
 		if !src.HasAudio {
 			err = ErrNoStreams
 		}
-		// As of writing ffmpeg does not support cover art in neither MP4-like
-		// containers or OGG, so consider these unthumbnailable.
 		return
 	}
 

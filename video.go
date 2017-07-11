@@ -1,6 +1,6 @@
 package thumbnailer
 
-// #cgo pkg-config: libavcodec libavutil libavformat
+// #cgo pkg-config: libavcodec libavutil libavformat libswscale
 // #cgo CFLAGS: -std=c11
 // #include "video.h"
 import "C"

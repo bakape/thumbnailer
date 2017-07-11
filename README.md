@@ -12,7 +12,7 @@ For a comprehensive list of file formats supported by default, check the `matche
 * make
 * pkg-config
 * pthread
-* ffmpeg >= 3.0 libraries (libavcodec, libavutil, libavformat)
+* ffmpeg >= 3.0 libraries (libavcodec, libavutil, libavformat, libswscale)
 * GraphicsMagick
 
 NB: ffmpeg and GM should be compiled with all the dependency libraries for

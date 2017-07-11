@@ -9,34 +9,38 @@ int extract_video_image(struct Buffer *img,
 						AVCodecContext *avcc,
 						const int stream)
 {
-	AVFrame *frame;
+	int err;
 	AVPacket pkt;
-	int err, got;
+	AVFrame *frame = av_frame_alloc();
 
 	for (;;) {
 		err = av_read_frame(avfc, &pkt);
 		if (err < 0) {
-			return err;
+			break;
 		}
 
 		if (pkt.stream_index == stream) {
-			got = 0;
-			frame = av_frame_alloc();
-			err = avcodec_decode_video2(avcc, frame, &got, &pkt);
-			av_packet_unref(&pkt);
+			err = avcodec_send_packet(avcc, &pkt);
 			if (err < 0) {
-				av_frame_free(&frame);
-				return err;
+				break;
 			}
 
-			if (got) {
-				err = encode_frame(img, frame);
-				av_frame_free(&frame);
-				return err;
+			err = avcodec_receive_frame(avcc, frame);
+			if (err == AVERROR(EAGAIN)) {
+				av_packet_unref(&pkt);
+				continue;
+			} else if (err < 0) {
+				break;
 			}
-			av_frame_free(&frame);
+
+			err = encode_frame(img, frame);
+			break;
 		}
 	}
+
+	av_packet_unref(&pkt);
+	av_frame_free(&frame);
+	return err;
 }
 
 // Encode frame to RGBA image

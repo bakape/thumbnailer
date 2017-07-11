@@ -23,7 +23,7 @@ int thumbnail(struct Buffer *src,
 	// If width and height are already defined, then a frame from ffmpeg has
 	// been passed
 	if (src->width && src->height) {
-		strcpy(info->magick, "YUV");
+		strcpy(info->magick, "RGBA");
 		char *buf = malloc(128);
 		int over = snprintf(buf, 128, "%lux%lu", src->width, src->height);
 		if (over > 0) {
@@ -31,6 +31,7 @@ int thumbnail(struct Buffer *src,
 			sprintf(buf, "%lux%lu", src->width, src->height);
 		}
 		info->size = buf;
+		info->depth = 8;
 	}
 
 	img = BlobToImage(info, src->data, src->size, ex);
@@ -162,7 +163,7 @@ hasTransparency(const Image const *img, bool *needPNG, ExceptionInfo *ex)
 			return 1;
 		}
 		for (unsigned long j = 0; j < img->columns; j++) {
-			if (packets[i].opacity != MaxRGB) {
+			if (packets[j].opacity > 0) {
 				*needPNG = true;
 				return 0;
 			}

@@ -30,7 +30,7 @@ func init() {
 }
 
 // processImage generates a thumbnail from a source image buffer. If width and
-// height are non-zero, buf is assumed to be a raw Y420 image.
+// height are non-zero, buf is assumed to be a raw RGBA image.
 func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 	srcC := C.struct_Buffer{
 		data:   (*C.uint8_t)(C.CBytes(src.Data)),

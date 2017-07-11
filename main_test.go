@@ -39,6 +39,7 @@ var samples = []string{
 	"with_cover.flac",
 	"with_sound.mp4",
 	"odd_dimensions.webm", // Unconventional dims for a YUV stream
+	"alpha.webm",
 }
 
 func TestProcess(t *testing.T) {
@@ -230,5 +231,25 @@ func TestMetadataExtraction(t *testing.T) {
 	}
 	if src.Title != "Test Title" {
 		t.Errorf("unexpected title: Test Title: %s", src.Title)
+	}
+}
+
+func TestWebmAlpha(t *testing.T) {
+	t.Parallel()
+
+	f := openSample(t, "alpha.webm")
+	defer f.Close()
+
+	_, thumb, err := Process(f, Options{
+		ThumbDims: Dims{
+			Width:  150,
+			Height: 150,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !thumb.IsPNG {
+		t.Errorf("should contain alpha channel")
 	}
 }

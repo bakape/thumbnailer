@@ -55,23 +55,35 @@ int codec_context(AVCodecContext **avcc,
 				  const enum AVMediaType type)
 {
 	int err;
+	AVStream *st = NULL;
 	AVCodec *codec = NULL;
+
 	*stream = av_find_best_stream(avfc, type, -1, -1, NULL, 0);
 	if (*stream < 0) {
 		return *stream;
 	}
-	*avcc = avfc->streams[*stream]->codec;
+	st = avfc->streams[*stream];
 
 	// ffvp8/9 doesn't support alpha channel so force libvpx.
-	if ((*avcc)->codec_id == AV_CODEC_ID_VP8) {
-			codec = avcodec_find_decoder_by_name("libvpx");
-	} else if ((*avcc)->codec_id == AV_CODEC_ID_VP9) {
-			codec = avcodec_find_decoder_by_name("libvpx-vp9");
-	} else {
-			codec = avcodec_find_decoder((*avcc)->codec_id);
+	if (st->codecpar->codec_id == AV_CODEC_ID_VP8) {
+		codec = avcodec_find_decoder_by_name("libvpx");
+	} else if (st->codecpar->codec_id == AV_CODEC_ID_VP9) {
+		codec = avcodec_find_decoder_by_name("libvpx-vp9");
 	}
 	if (!codec) {
+		codec = avcodec_find_decoder(st->codecpar->codec_id);
+		if (!codec) {
 			return -1;
+		}
+	}
+
+	*avcc = avcodec_alloc_context3(codec);
+	if (!*avcc) {
+		return -1;
+	}
+	err = avcodec_parameters_to_context(*avcc, st->codecpar);
+	if (err < 0) {
+		return err;
 	}
 
 	// Not thread safe. Needs lock.

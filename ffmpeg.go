@@ -154,7 +154,7 @@ func (c *FFContext) codecContext(typ FFMediaType) (codecInfo, error) {
 	)
 	err := C.codec_context(&ctx, &stream, c.avFormatCtx, int32(typ))
 	switch {
-	case err == C.AVERROR_STREAM_NOT_FOUND:
+	case uint64(err) == uint64(C.AVERROR_STREAM_NOT_FOUND):
 		return codecInfo{}, ErrStreamNotFound
 	case err < 0:
 		return codecInfo{}, ffError(err)
@@ -175,7 +175,7 @@ func (c *FFContext) CodecName(typ FFMediaType) (string, error) {
 		return C.GoString(ci.ctx.codec.name), nil
 	}
 	fferr, ok := err.(ffError)
-	if ok && fferr.Code() == C.AVERROR_STREAM_NOT_FOUND {
+	if ok && uint64(fferr.Code()) == uint64(C.AVERROR_STREAM_NOT_FOUND) {
 		err = ErrStreamNotFound
 	}
 	return "", err

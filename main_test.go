@@ -8,41 +8,41 @@ import (
 	"testing"
 )
 
-var samples = []string{
-	"no_cover.mp4",
-	"no_sound.mkv",
-	"no_sound.ogg",
-	"sample.gif",
-	"sample.psd",
-	"with_sound.avi",
-	"no_cover.flac",
-	"no_cover.ogg",
-	"no_sound.mov",
-	"no_sound.webm",
-	"sample.jpg",
-	"sample.tiff",
-	"with_cover.mp3",
-	"with_sound.mkv",
-	"with_sound.ogg",
-	"no_sound.avi",
-	"no_sound.mp4",
-	"no_sound.wmv",
-	"sample.pdf",
-	"sample.webp",
-	"with_sound.mov",
-	"with_sound.webm",
-	"no_cover.mp3",
-	"no_magic.mp3", // No magic numbers
-	"no_sound.flv",
-	"sample.bmp",
-	"sample.png",
-	"with_cover.flac",
-	"with_sound.mp4",
-	"odd_dimensions.webm", // Unconventional dims for a YUV stream
-	"alpha.webm",
-}
-
 func TestProcess(t *testing.T) {
+	var samples = map[string]error{
+		"no_cover.mp4":        ErrNoThumb,
+		"no_cover.flac":       ErrNoThumb,
+		"no_cover.ogg":        ErrNoThumb,
+		"no_cover.mp3":        ErrNoThumb,
+		"no_sound.mkv":        nil,
+		"no_sound.ogg":        nil,
+		"sample.gif":          nil,
+		"sample.psd":          nil,
+		"with_sound.avi":      nil,
+		"no_sound.mov":        nil,
+		"no_sound.webm":       nil,
+		"sample.jpg":          nil,
+		"sample.tiff":         nil,
+		"with_cover.mp3":      nil,
+		"with_sound.mkv":      nil,
+		"with_sound.ogg":      nil,
+		"no_sound.avi":        nil,
+		"no_sound.mp4":        nil,
+		"no_sound.wmv":        nil,
+		"sample.pdf":          nil,
+		"sample.webp":         nil,
+		"with_sound.mov":      nil,
+		"with_sound.webm":     nil,
+		"no_magic.mp3":        nil, // No magic numbers
+		"no_sound.flv":        nil,
+		"sample.bmp":          nil,
+		"sample.png":          nil,
+		"with_cover.flac":     nil,
+		"with_sound.mp4":      nil,
+		"odd_dimensions.webm": nil, // Unconventional dims for a YUV stream
+		"alpha.webm":          nil,
+	}
+
 	t.Parallel()
 
 	opts := Options{
@@ -50,8 +50,11 @@ func TestProcess(t *testing.T) {
 		ThumbDims:   Dims{150, 150},
 	}
 
-	for i := range samples {
-		sample := samples[i]
+	for s, exErr := range samples {
+		// Persist through other goroutines
+		sample := s
+		expectedErr := exErr
+
 		t.Run(sample, func(t *testing.T) {
 			t.Parallel()
 
@@ -59,20 +62,18 @@ func TestProcess(t *testing.T) {
 			defer f.Close()
 
 			src, thumb, err := Process(f, opts)
-			if err != nil && err != ErrNoCoverArt {
+			if err != expectedErr {
 				t.Fatal(err)
 			}
 
-			if err != ErrNoCoverArt {
-				var ext string
-				if thumb.IsPNG {
-					ext = "png"
-				} else {
-					ext = "jpg"
-				}
-				name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
-				writeSample(t, name, thumb.Data)
+			var ext string
+			if thumb.IsPNG {
+				ext = "png"
+			} else {
+				ext = "jpg"
 			}
+			name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
+			writeSample(t, name, thumb.Data)
 
 			src.Data = nil
 			thumb.Data = nil
@@ -83,6 +84,8 @@ func TestProcess(t *testing.T) {
 }
 
 func openSample(t *testing.T, name string) *os.File {
+	t.Helper()
+
 	f, err := os.Open(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +94,8 @@ func openSample(t *testing.T, name string) *os.File {
 }
 
 func writeSample(t *testing.T, name string, buf []byte) {
+	t.Helper()
+
 	path := filepath.Join("testdata", name)
 
 	// Remove previous file, if any
@@ -112,29 +117,12 @@ func writeSample(t *testing.T, name string, buf []byte) {
 	}
 }
 
-func TestErrorPassing(t *testing.T) {
-	t.Parallel()
-
-	f := openSample(t, "sample.txt")
-	defer f.Close()
-
-	_, _, err := Process(f, Options{
-		ThumbDims: Dims{
-			Width:  150,
-			Height: 150,
-		},
-	})
-	if err == nil {
-		t.Fatal(`expected error`)
-	}
-}
-
 func TestDimensionValidation(t *testing.T) {
 	t.Parallel()
 
 	cases := [...]struct {
 		name, file string
-		maxW, maxH uint
+		maxW, maxH uint64
 		err        error
 	}{
 		{
@@ -185,8 +173,7 @@ func TestDimensionValidation(t *testing.T) {
 			f := openSample(t, c.file)
 			defer f.Close()
 
-			_, _, err := Process(f, opts)
-			if err != c.err {
+			if _, _, err := Process(f, opts); err != c.err {
 				t.Fatalf("unexpected error: `%s` : `%s`", c.err, err)
 			}
 		})
@@ -216,23 +203,23 @@ func TestSourceAlreadyThumbSize(t *testing.T) {
 	}
 }
 
-func TestMetadataExtraction(t *testing.T) {
-	t.Parallel()
+// func TestMetadataExtraction(t *testing.T) {
+// 	t.Parallel()
 
-	f := openSample(t, "title.mp3")
-	defer f.Close()
+// 	f := openSample(t, "title.mp3")
+// 	defer f.Close()
 
-	src, _, err := Process(f, Options{})
-	if err != nil && err != ErrNoCoverArt {
-		t.Fatal(err)
-	}
-	if src.Artist != "Test Artist" {
-		t.Errorf("unexpected artist: Test Artist : %s", src.Artist)
-	}
-	if src.Title != "Test Title" {
-		t.Errorf("unexpected title: Test Title: %s", src.Title)
-	}
-}
+// 	src, _, err := Process(f, Options{})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if src.Artist != "Test Artist" {
+// 		t.Errorf("unexpected artist: Test Artist : %s", src.Artist)
+// 	}
+// 	if src.Title != "Test Title" {
+// 		t.Errorf("unexpected title: Test Title: %s", src.Title)
+// 	}
+// }
 
 func TestWebmAlpha(t *testing.T) {
 	t.Parallel()

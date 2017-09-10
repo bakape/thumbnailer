@@ -5,7 +5,6 @@ package thumbnailer
 
 import (
 	"io"
-	"io/ioutil"
 	"time"
 )
 
@@ -23,7 +22,7 @@ type Thumbnail struct {
 // Source stores the source image, including information about the source file
 type Source struct {
 	// Some containers may or may not have either
-	HasAudio, HasVideo bool
+	HasAudio, HasVideo, HasCoverArt bool
 
 	// Length of the stream. Applies to audio and video files.
 	Length time.Duration
@@ -42,13 +41,16 @@ type Source struct {
 
 // Dims store the dimensions of an image
 type Dims struct {
-	Width, Height uint
+	Width, Height uint64
 }
 
 // Options suplied to the Thumbnail function
 type Options struct {
-	// JPEG thumbnail quality to use. [0,100]
+	// JPEG thumbnail quality to use. [0,100]. Defaults to 75.
 	JPEGQuality uint8
+
+	// Lossy PNG compression quality. [0,100]. Defaults to 30.
+	PNGQuality uint8
 
 	// Maximum source image dimensions. Any image exceeding either will be
 	// rejected and return with ErrTooTall or ErrTooWide. If not set, all images
@@ -65,36 +67,28 @@ type Options struct {
 
 // Process generates a thumbnail from a file of unknown type and performs some
 // basic meta information extraction
-func Process(rs io.ReadSeeker, opts Options) (
-	src Source, thumb Thumbnail, err error,
-) {
-	src.Mime, src.Extension, err = DetectMIME(rs, opts.AcceptedMimeTypes)
+func Process(r io.Reader, opts Options) (Source, Thumbnail, error) {
+	buf := GetBuffer()
+	_, err := buf.ReadFrom(r)
 	if err != nil {
-		return
+		return Source{}, Thumbnail{}, err
 	}
-
-	_, err = rs.Seek(0, 0)
-	if err != nil {
-		return
-	}
-	src.Data, err = ioutil.ReadAll(rs)
-	if err != nil {
-		return
-	}
-
-	return processFile(src, opts)
+	return ProcessBuffer(buf.Bytes(), opts)
 }
 
-// ProcessBuffer is like Process, but takes []byte as input. More efficient,
-// if you already have the file buffered into memory.
+// ProcessBuffer is like Process, but takes []byte as input.
+// More efficient, if you already have the file buffered into memory.
 func ProcessBuffer(buf []byte, opts Options) (
 	src Source, thumb Thumbnail, err error,
 ) {
-	src.Mime, src.Extension, err = DetectMIMEBuffer(buf, opts.AcceptedMimeTypes)
-	if err != nil {
-		return
+	if opts.JPEGQuality == 0 {
+		opts.JPEGQuality = 75
+	}
+	if opts.PNGQuality == 0 {
+		opts.PNGQuality = 30
 	}
 
 	src.Data = buf
-	return processFile(src, opts)
+	thumb, err = processFile(&src, opts)
+	return
 }

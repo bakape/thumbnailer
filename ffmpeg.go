@@ -1,223 +1,149 @@
 package thumbnailer
 
-// #cgo pkg-config: libavcodec libavutil libavformat
-// #cgo CFLAGS: -std=c11
-// #include "ffmpeg.h"
-import "C"
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"sync"
+	"strconv"
 	"time"
-	"unsafe"
-)
-
-// FFMediaType correspond to the AVMediaType enum in ffmpeg
-type FFMediaType int8
-
-// Correspond to the AVMediaType enum in ffmpeg
-const (
-	FFUnknown FFMediaType = iota - 1
-	FFVideo
-	FFAudio
 )
 
 var (
-	// Global map of AVIOHandlers. One handlers struct per format context.
-	// Using AVFormatContext pointer address as a key.
-	handlersMap = handlerMap{
-		m: make(map[uintptr]io.ReadSeeker),
-	}
+	// ErrNoStreams denotes no decodeable audio or video streams were found in
+	// a media container
+	ErrNoStreams = errors.New("no decodeable video or audio streams found")
 
-	// ErrStreamNotFound denotes no steam of this media type was found
-	ErrStreamNotFound = errors.New("no stream of this type found")
+	// ErrNoThumb denotes a thumbnail can not be generated for this file.
+	// Example: audio file with no cover art.
+	ErrNoThumb = errors.New("no thumbnail can be generated")
 )
 
-func init() {
-	C.av_register_all()
-	C.avcodec_register_all()
-	C.av_log_set_level(16)
-}
-
-// C can not retain any pointers to Go memory after the cgo call returns. We
-// still need a way to bind AVFormatContext instances to Go I/O functions. To do
-// that we convert the AVFormatContext pointer to a uintptr and use it as a key
-// to look up the respective handlers on each call.
-type handlerMap struct {
-	sync.RWMutex
-	m map[uintptr]io.ReadSeeker
-}
-
-func (h *handlerMap) Set(k uintptr, rs io.ReadSeeker) {
-	h.Lock()
-	h.m[k] = rs
-	h.Unlock()
-}
-
-func (h *handlerMap) Delete(k uintptr) {
-	h.Lock()
-	delete(h.m, k)
-	h.Unlock()
-}
-
-func (h *handlerMap) Get(k unsafe.Pointer) io.ReadSeeker {
-	h.RLock()
-	handlers, ok := h.m[uintptr(k)]
-	h.RUnlock()
-	if !ok {
-		panic(fmt.Sprintf(
-			"no handlers instance found, according to pointer: %v",
-			k,
-		))
-	}
-	return handlers
-}
-
-// Container for allocated codecs, so we can reuse them
-type codecInfo struct {
-	stream C.int
-	ctx    *C.AVCodecContext
-}
-
-// ffError converts an FFmpeg error code to a Go error with a human-readable
-// error message
-type ffError C.int
-
-// Error formats the FFmpeg error in human-readable format
-func (f ffError) Error() string {
-	str := C.format_error(C.int(f))
-	defer C.free(unsafe.Pointer(str))
-	return fmt.Sprintf("ffmpeg: %s", C.GoString(str))
-}
-
-// Code returns the underlying FFmpeg error code
-func (f ffError) Code() C.int {
-	return C.int(f)
-}
-
-// FFContext is a wrapper for passing Go I/O interfaces to C
-type FFContext struct {
-	avFormatCtx *C.struct_AVFormatContext
-	handlerKey  uintptr
-	codecs      map[FFMediaType]codecInfo
-}
-
-// NewFFContext constructs a new AVIOContext and AVFormatContext.
-// It is the responsibility of the caller to call Close() after finishing
-// using the context.
-func NewFFContext(rs io.ReadSeeker) (*FFContext, error) {
-	ctx := C.avformat_alloc_context()
-	this := &FFContext{
-		avFormatCtx: ctx,
-		codecs:      make(map[FFMediaType]codecInfo),
+type mediaInfo struct {
+	// Container information
+	Format struct {
+		FormatName string   `json:"format_name"`
+		Duration   duration `json:"duration"`
+		Meta       struct {
+			Title  string `json:"title"`
+			Artist string `json:"artist"`
+		} `json:"tags"`
 	}
 
-	this.handlerKey = uintptr(unsafe.Pointer(ctx))
-	handlersMap.Set(this.handlerKey, rs)
-
-	err := C.create_context(&this.avFormatCtx)
-	if err < 0 {
-		this.Close()
-		return nil, ffError(err)
-	}
-	if this.avFormatCtx == nil {
-		this.Close()
-		return nil, errors.New("unknown context creation error")
-	}
-
-	return this, nil
+	// Streams detected in the container
+	Streams []struct {
+		CodecName string `json:"codec_name"`
+		CodecType string `json:"codec_type"`
+		Width     uint64 `json:"width"`
+		Height    uint64 `json:"height"`
+	} `json:"streams"`
 }
 
-// Close closes and frees memory allocated for c. c should not be used after
-// this point.
-func (c *FFContext) Close() {
-	for _, ci := range c.codecs {
-		C.avcodec_free_context(&ci.ctx)
+// Parses FFMPEG duration stings
+type duration time.Duration
+
+func (d *duration) UnmarshalJSON(data []byte) error {
+	if len(data) < 3 {
+		return nil
 	}
-	if c.avFormatCtx != nil {
-		C.destroy(c.avFormatCtx)
+	data = data[1 : len(data)-1] // Strip quotes
+
+	f, err := strconv.ParseFloat(string(data), 64)
+	if err != nil {
+		return err
 	}
-	handlersMap.Delete(c.handlerKey)
+
+	*d = duration(time.Duration(f) * time.Second)
+	return nil
 }
 
-// Allocate a codec context for the best stream of the passed FFMediaType, if
-// not allocated already
-func (c *FFContext) codecContext(typ FFMediaType) (codecInfo, error) {
-	if ci, ok := c.codecs[typ]; ok {
-		return ci, nil
-	}
-
-	var (
-		ctx    *C.struct_AVCodecContext
-		stream C.int
+// Returns media file information
+func getMediaInfo(data []byte) (info mediaInfo, err error) {
+	buf, err := execCommand(
+		data,
+		"ffprobe",
+		"-",
+		"-hide_banner",
+		"-v", "fatal",
+		"-of", "json=c=1",
+		"-show_entries", "format=format_name,duration:stream=codec_name,codec_type,width,height",
 	)
-	err := C.codec_context(&ctx, &stream, c.avFormatCtx, int32(typ))
+	if err != nil {
+		return
+	}
+	defer PutBuffer(buf)
+
+	err = json.Unmarshal(buf.Bytes(), &info)
+	return
+}
+
+func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
+	info, err := getMediaInfo(src.Data)
+	if err != nil {
+		return
+	}
+	src.Length = time.Duration(info.Format.Duration)
+
+	// Detect any audio stream, video stream and/or cover art
+	for _, s := range info.Streams {
+		switch s.CodecType {
+		case "audio":
+			src.HasAudio = true
+		case "video":
+			// Detect dimensions to skip furher checks by the thumbnailer
+			if src.Width == 0 && s.Width != 0 {
+				src.Width = s.Width
+			}
+			if src.Height == 0 && s.Height != 0 {
+				src.Height = s.Height
+			}
+
+			switch s.CodecName {
+			// Cover art counts as a video stream
+			case "png", "jpeg", "gif":
+				src.HasCoverArt = true
+			default:
+				src.HasVideo = true
+			}
+		}
+	}
+
+	err = handleDims(src, &thumb, opts)
+	if err != nil {
+		return
+	}
+
+	// TODO
+	// c.ExtractMeta(&src)
+
+	args := append(
+		make([]string, 0, 16),
+		"-i", "-",
+		"-hide_banner",
+		"-v", "fatal",
+		"-an", "-sn",
+		"-frames:v", "1",
+		"-f", "apng", // May have transparency, so always output PNG
+	)
+	thumb.IsPNG = true
 	switch {
-	case uint64(err) == uint64(C.AVERROR_STREAM_NOT_FOUND):
-		return codecInfo{}, ErrStreamNotFound
-	case err < 0:
-		return codecInfo{}, ffError(err)
-	}
-
-	ci := codecInfo{
-		stream: stream,
-		ctx:    ctx,
-	}
-	c.codecs[typ] = ci
-	return ci, nil
-}
-
-// CodecName returns the codec name of the best stream of type typ
-func (c *FFContext) CodecName(typ FFMediaType) (string, error) {
-	ci, err := c.codecContext(typ)
-	if err == nil {
-		return C.GoString(ci.ctx.codec.name), nil
-	}
-	fferr, ok := err.(ffError)
-	if ok && uint64(fferr.Code()) == uint64(C.AVERROR_STREAM_NOT_FOUND) {
-		err = ErrStreamNotFound
-	}
-	return "", err
-}
-
-// HasStream returns, if the file hash a decodeable stream of the passed type
-func (c *FFContext) HasStream(typ FFMediaType) (bool, error) {
-	_, err := c.codecContext(typ)
-	switch err {
-	case nil:
-		return true, nil
-	case ErrStreamNotFound:
-		return false, nil
+	case src.HasCoverArt:
+	case src.HasVideo:
+		args = append(args, "-vf", "thumbnail")
 	default:
-		return false, err
+		// As of writing ffmpeg does not support cover art in neither MP4-like
+		// containers or OGG, so consider these unthumbnailable
+		if src.HasAudio {
+			err = ErrNoThumb
+		} else {
+			err = ErrNoStreams
+		}
+		return
 	}
-}
+	args = append(args, "-")
 
-// Duration returns the duration of the input
-func (c *FFContext) Duration() time.Duration {
-	return time.Duration(c.avFormatCtx.duration * 1000)
-}
+	pipe := make(pipeLine, 1, 3)
+	pipe[0] = command("ffmpeg", args...)
+	pipe = append(pipe, genThumb(src, &thumb, opts)...)
+	thumb.Data, err = pipe.Exec(src.Data)
 
-//export readCallBack
-func readCallBack(opaque unsafe.Pointer, buf *C.uint8_t, bufSize C.int) C.int {
-	s := (*[1 << 30]byte)(unsafe.Pointer(buf))[:bufSize:bufSize]
-	n, err := handlersMap.Get(opaque).Read(s)
-	if err != nil {
-		return -1
-	}
-	return C.int(n)
-}
-
-//export seekCallBack
-func seekCallBack(
-	opaque unsafe.Pointer,
-	offset C.int64_t,
-	whence C.int,
-) C.int64_t {
-	n, err := handlersMap.Get(opaque).Seek(int64(offset), int(whence))
-	if err != nil {
-		return -1
-	}
-	return C.int64_t(n)
+	return
 }

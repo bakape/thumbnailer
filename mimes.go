@@ -5,9 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 )
-
-const sniffSize = 4 << 10
 
 // Matching code partially adapted from "net/http/sniff.go"
 
@@ -81,7 +80,7 @@ var (
 )
 
 // Processor is a specialized file processor for a specific file type
-type Processor func(Source, Options) (Source, Thumbnail, error)
+type Processor func(*Source, Options) (Thumbnail, error)
 
 // Matcher takes up to the first 512 bytes of a file and returns the MIME type
 // and canonical extension, that were matched. Empty string indicates no match.
@@ -168,18 +167,21 @@ func matchMP4(data []byte) (string, string) {
 // MP3 is a retarded standard, that will not always even have a magic number.
 // Need to detect with FFMPEG as a last resort.
 func matchMP3(data []byte) (mime string, ext string) {
-	c, err := NewFFContext(bytes.NewReader(data))
+	buf, err := execCommand(
+		data, "ffprobe", "-",
+		"-hide_banner",
+		"-v", "fatal",
+		"-of", "compact",
+		"-show_entries", "format=format_name",
+	)
 	if err != nil {
 		return
 	}
-	defer c.Close()
+	defer PutBuffer(buf)
 
-	codec, err := c.CodecName(FFAudio)
-	if err != nil {
-		return
-	}
-	if codec == "mp3" {
-		return "audio/mpeg", "mp3"
+	s := strings.TrimPrefix(buf.String(), "format|format_name=")
+	if s == "mp3" {
+		return "audio/mpeg", s
 	}
 	return
 }
@@ -207,35 +209,26 @@ func RegisterProcessor(mime string, fn Processor) {
 	overrideProcessors[mime] = fn
 }
 
-// DetectMIME  detects the MIME typ of the r. r must be at starting position.
+// DetectMIME  detects the MIME type of r. r must be at starting position.
 // accepted, if not nil, specifies MIME types to not reject with
 // UnsupportedMIMEError.
-func DetectMIME(r io.Reader, accepted map[string]bool) (string, string, error) {
-	buf := make([]byte, sniffSize)
-	read, err := r.Read(buf)
+// Returns mime type, most common file extension and any error.
+func DetectMIME(r io.Reader, accepted map[string]bool) (
+	mime string, ext string, err error,
+) {
+	buf := GetBuffer()
+	defer PutBuffer(buf)
+	_, err = buf.ReadFrom(r)
 	if err != nil {
-		return "", "", err
+		return
 	}
-	if read < sniffSize {
-		buf = buf[:read]
-	}
-	return detectMimeType(buf, accepted)
+	return DetectMIMEBuffer(buf.Bytes(), accepted)
 }
 
 // DetectMIMEBuffer is like DetectMIME, but accepts a []byte slice already
 // loaded into memory.
 func DetectMIMEBuffer(buf []byte, accepted map[string]bool) (
-	string, string, error,
-) {
-	if len(buf) > sniffSize {
-		buf = buf[:sniffSize]
-	}
-	return detectMimeType(buf, accepted)
-}
-
-// Can be passed either the full read file as []byte or io.ReadSeeker
-func detectMimeType(buf []byte, accepted map[string]bool) (
-	mime, ext string, err error,
+	mime string, ext string, err error,
 ) {
 	for _, m := range matchers {
 		mime, ext = m.Match(buf)
@@ -244,10 +237,8 @@ func detectMimeType(buf []byte, accepted map[string]bool) (
 		}
 	}
 
-	if mime == "" {
-		if accepted == nil || accepted["audio/mpeg"] {
-			mime, ext = matchMP3(buf)
-		}
+	if mime == "" && (accepted == nil || accepted["audio/mpeg"]) {
+		mime, ext = matchMP3(buf)
 	}
 
 	switch {
@@ -260,9 +251,16 @@ func detectMimeType(buf []byte, accepted map[string]bool) (
 	return
 }
 
-func processFile(src Source, opts Options) (Source, Thumbnail, error) {
-	override := overrideProcessors[src.Mime]
-	if override != nil {
+func processFile(src *Source, opts Options) (thumb Thumbnail, err error) {
+	src.Mime, src.Extension, err = DetectMIMEBuffer(
+		src.Data,
+		opts.AcceptedMimeTypes,
+	)
+	if err != nil {
+		return
+	}
+
+	if override := overrideProcessors[src.Mime]; override != nil {
 		return override(src, opts)
 	}
 
@@ -278,14 +276,12 @@ func processFile(src Source, opts Options) (Source, Thumbnail, error) {
 		"image/tiff",
 		"image/x-icon":
 		return processImage(src, opts)
-	case
+	case // Audio is treated like a video container with only an audio stream
 		"audio/mpeg",
 		"audio/aac",
 		"audio/wave",
 		"audio/x-flac",
-		"audio/midi":
-		return processAudio(src, opts)
-	case
+		"audio/midi",
 		"application/ogg",
 		"video/webm",
 		"video/x-matroska",
@@ -296,6 +292,6 @@ func processFile(src Source, opts Options) (Source, Thumbnail, error) {
 		"video/x-flv":
 		return processVideo(src, opts)
 	default:
-		return src, Thumbnail{}, UnsupportedMIMEError(src.Mime)
+		return Thumbnail{}, UnsupportedMIMEError(src.Mime)
 	}
 }

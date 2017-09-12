@@ -33,7 +33,7 @@ func TestProcess(t *testing.T) {
 		"sample.webp":         nil,
 		"with_sound.mov":      nil,
 		"with_sound.webm":     nil,
-		"no_magic.mp3":        nil, // No magic numbers
+		"no_magic.mp3":        ErrNoThumb, // No magic numbers
 		"no_sound.flv":        nil,
 		"sample.bmp":          nil,
 		"sample.png":          nil,

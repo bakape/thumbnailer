@@ -206,7 +206,8 @@ func matchMp3(_ []byte, rs io.ReadSeeker) bool {
 	}
 	defer PutBuffer(buf)
 
-	return strings.TrimPrefix(buf.String(), "format|format_name=") == "mp3"
+	s := strings.TrimSpace(buf.String())
+	return strings.TrimPrefix(s, "format|format_name=") == "mp3"
 }
 
 func matchMP4(data []byte, _ io.ReadSeeker) (matched bool) {

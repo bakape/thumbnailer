@@ -73,7 +73,7 @@ func TestProcess(t *testing.T) {
 			name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
 			writeSample(t, name, thumb.Data)
 
-			src.Data = nil
+			src.data = nil
 			thumb.Data = nil
 			t.Logf("src:   %v\n", src)
 			t.Logf("thumb: %v\n", thumb)

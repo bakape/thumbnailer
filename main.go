@@ -37,7 +37,7 @@ type Source struct {
 	// Canonical file extension
 	Extension string
 
-	Data io.ReadSeeker
+	data io.ReadSeeker
 	Dims
 }
 
@@ -78,7 +78,7 @@ func Process(r io.ReadSeeker, opts Options) (Source, Thumbnail, error) {
 	}
 
 	src := Source{
-		Data: r,
+		data: r,
 	}
 	thumb, err := processFile(&src, opts)
 	return src, thumb, err

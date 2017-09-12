@@ -33,7 +33,7 @@ func PutBuffer(b *bytes.Buffer) {
 
 // Same as PutBuffer, but for []byte
 func PutBytes(b []byte) {
-	bufPool.Put(bytes.NewBuffer(b))
+	bufPool.Put(bytes.NewBuffer(b[:0]))
 }
 
 var binPaths = make(map[string]string, 4)

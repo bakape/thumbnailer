@@ -30,7 +30,7 @@ func processImage(src *Source, opts Options) (thumb Thumbnail, err error) {
 	if err = handleDims(src, &thumb, opts); err != nil {
 		return
 	}
-	thumb.Data, err = genThumb(src, &thumb, opts).Exec(src.Data)
+	thumb.Data, err = genThumb(src, &thumb, opts).Exec(src.data)
 	return
 }
 
@@ -110,7 +110,7 @@ func genThumb(src *Source, thumb *Thumbnail, opts Options) pipeLine {
 // Detect image dimensions and transparency support
 func getImageInfo(src *Source) (supportsAlpha bool, err error) {
 	buf, err := execCommand(
-		src.Data, "gm", "identify", "-[0]",
+		src.data, "gm", "identify", "-[0]",
 		"-format", "%W,%H,%A",
 	)
 	if err != nil {

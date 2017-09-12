@@ -78,7 +78,7 @@ func getMediaInfo(rs io.ReadSeeker) (info mediaInfo, err error) {
 }
 
 func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
-	info, err := getMediaInfo(src.Data)
+	info, err := getMediaInfo(src.data)
 	if err != nil {
 		return
 	}
@@ -123,7 +123,7 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 	case "video/mp4", "video/quicktime":
 		isMP4 = true
 
-		_, err = src.Data.Seek(0, 0)
+		_, err = src.data.Seek(0, 0)
 		if err != nil {
 			return
 		}
@@ -135,7 +135,7 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		defer tmp.Close()
 		defer os.Remove(tmp.Name())
 
-		_, err = io.Copy(tmp, src.Data)
+		_, err = io.Copy(tmp, src.data)
 		if err != nil {
 			return
 		}
@@ -177,6 +177,6 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		command("ffmpeg", args...),
 		genThumb(src, &thumb, opts)[0],
 	}
-	thumb.Data, err = pipe.Exec(src.Data)
+	thumb.Data, err = pipe.Exec(src.data)
 	return
 }

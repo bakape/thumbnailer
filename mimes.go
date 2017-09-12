@@ -285,7 +285,7 @@ func DetectMIME(rs io.ReadSeeker, accepted map[string]bool) (
 }
 
 func processFile(src *Source, opts Options) (thumb Thumbnail, err error) {
-	src.Mime, src.Extension, err = DetectMIME(src.Data, opts.AcceptedMimeTypes)
+	src.Mime, src.Extension, err = DetectMIME(src.data, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}

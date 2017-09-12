@@ -99,7 +99,7 @@ func (p pipeLine) Exec(rs io.ReadSeeker) (out []byte, err error) {
 
 		err = c.Run()
 		if err != nil {
-			err = fmt.Errorf("%s: %s", err, stdErr.String())
+			formatFFMPEGError(&err, &stdErr)
 			return
 		}
 
@@ -116,6 +116,10 @@ func (p pipeLine) Exec(rs io.ReadSeeker) (out []byte, err error) {
 	}
 
 	return stdIn.Bytes(), nil
+}
+
+func formatFFMPEGError(err *error, stdErr *bytes.Buffer) {
+	*err = fmt.Errorf("%s: %s", *err, strings.TrimSpace(stdErr.String()))
 }
 
 // Helper for constructing child processes
@@ -146,7 +150,8 @@ func execCommand(rs io.ReadSeeker, bin string, args ...string) (
 	cmd.Stdout = stdOut
 	if err := cmd.Run(); err != nil {
 		PutBuffer(stdOut)
-		return nil, fmt.Errorf("%s: %s", err, stdErr.String())
+		formatFFMPEGError(&err, &stdErr)
+		return nil, err
 	}
 	return stdOut, nil
 }

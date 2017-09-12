@@ -122,6 +122,12 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 	switch src.Mime {
 	case "video/mp4", "video/quicktime":
 		isMP4 = true
+
+		_, err = src.Data.Seek(0, 0)
+		if err != nil {
+			return
+		}
+
 		tmp, err = ioutil.TempFile("", "thumbnailer-")
 		if err != nil {
 			return

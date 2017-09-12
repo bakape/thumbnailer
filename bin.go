@@ -3,6 +3,7 @@ package thumbnailer
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -74,16 +75,25 @@ func findBin(name string) {
 type pipeLine []*exec.Cmd
 
 // Execute pipeLine with passed input data. Returns the final buffered stdout
-func (p pipeLine) Exec(data []byte) (out []byte, err error) {
+func (p pipeLine) Exec(rs io.ReadSeeker) (out []byte, err error) {
+	_, err = rs.Seek(0, 0)
+	if err != nil {
+		return
+	}
+
 	var (
-		stdIn  = bytes.NewBuffer(data)
+		stdIn  *bytes.Buffer
 		stdOut = GetBuffer()
 		stdErr bytes.Buffer
 		first  = true
 	)
 
 	for _, c := range p {
-		c.Stdin = stdIn
+		if first {
+			c.Stdin = rs
+		} else {
+			c.Stdin = stdIn
+		}
 		c.Stdout = stdOut
 		c.Stderr = &stdErr
 
@@ -94,7 +104,7 @@ func (p pipeLine) Exec(data []byte) (out []byte, err error) {
 		}
 
 		stdErr.Reset()
-		if first { // First buffer must not be modified
+		if first {
 			stdIn = stdOut
 			stdOut = GetBuffer()
 			defer PutBuffer(stdOut)
@@ -118,16 +128,20 @@ func command(bin string, args ...string) *exec.Cmd {
 
 // Execute command with given data as stdin.
 // Returns buffered output. Use PutBuffer() to return it back to the pool.
-func execCommand(data []byte, bin string, args ...string) (
+func execCommand(rs io.ReadSeeker, bin string, args ...string) (
 	*bytes.Buffer, error,
 ) {
+	if _, err := rs.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
 	var (
 		stdOut = GetBuffer()
 		stdErr bytes.Buffer
 	)
 
 	cmd := command(bin, args...)
-	cmd.Stdin = bytes.NewReader(data)
+	cmd.Stdin = rs
 	cmd.Stderr = &stdErr
 	cmd.Stdout = stdOut
 	if err := cmd.Run(); err != nil {

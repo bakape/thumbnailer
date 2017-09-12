@@ -3,6 +3,9 @@ package thumbnailer
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"time"
 )
@@ -56,9 +59,9 @@ func (d *duration) UnmarshalJSON(data []byte) error {
 }
 
 // Returns media file information
-func getMediaInfo(data []byte) (info mediaInfo, err error) {
+func getMediaInfo(rs io.ReadSeeker) (info mediaInfo, err error) {
 	buf, err := execCommand(
-		data,
+		rs,
 		"ffprobe",
 		"-",
 		"-hide_banner",
@@ -76,6 +79,7 @@ func getMediaInfo(data []byte) (info mediaInfo, err error) {
 }
 
 func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
+
 	info, err := getMediaInfo(src.Data)
 	if err != nil {
 		return
@@ -111,12 +115,39 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		return
 	}
 
+	// MP4 and its offspiring need input seeking and thus can not be piped in.
+	// Write a temp file to disk
+	var (
+		tmp   *os.File
+		isMP4 bool
+	)
+	switch src.Mime {
+	case "video/mp4", "video/quicktime":
+		isMP4 = true
+		tmp, err = ioutil.TempFile("", "thumbnailer-")
+		if err != nil {
+			return
+		}
+		defer tmp.Close()
+		defer os.Remove(tmp.Name())
+
+		_, err = io.Copy(tmp, src.Data)
+		if err != nil {
+			return
+		}
+	}
+
 	// TODO
 	// c.ExtractMeta(&src)
 
-	args := append(
-		make([]string, 0, 16),
-		"-i", "-",
+	args := append(make([]string, 0, 16), "-i")
+	if isMP4 {
+		args = append(args, tmp.Name())
+	} else {
+		args = append(args, "-")
+	}
+	args = append(
+		args,
 		"-hide_banner",
 		"-v", "fatal",
 		"-an", "-sn",

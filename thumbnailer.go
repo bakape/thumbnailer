@@ -135,11 +135,11 @@ func parseImageInfo(buf []byte, src *Source) (
 	}
 
 	var err error
-	src.Image.Width, err = strconv.ParseUint(split[0], 10, 64)
+	src.Width, err = strconv.ParseUint(split[0], 10, 64)
 	if err != nil {
 		return
 	}
-	src.Image.Height, err = strconv.ParseUint(split[1], 10, 64)
+	src.Height, err = strconv.ParseUint(split[1], 10, 64)
 	if err != nil {
 		return
 	}

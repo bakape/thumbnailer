@@ -3,10 +3,15 @@ package thumbnailer
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"io"
 	"strings"
 )
+
+var ErrUnsupportedMIME = errors.New("file MIME type not supported")
+
+// Size of buffer to perform MIME sniffing on
+const sniffSize = 512
 
 // Matching code partially adapted from "net/http/sniff.go"
 
@@ -19,40 +24,54 @@ var matchers = []Matcher{
 	&exactSig{"gif", "image/gif", []byte("GIF87a")},
 	&exactSig{"gif", "image/gif", []byte("GIF89a")},
 	&maskedSig{
-		"webp",
-		"image/webp",
+		exactSig{
+			"webp",
+			"image/webp",
+			[]byte("RIFF\x00\x00\x00\x00WEBPVP"),
+		},
 		[]byte("\xFF\xFF\xFF\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\xFF"),
-		[]byte("RIFF\x00\x00\x00\x00WEBPVP"),
 	},
 	&maskedSig{
-		"ogg",
-		"application/ogg",
+		exactSig{
+			"ogg",
+			"application/ogg",
+			[]byte("\x4F\x67\x67\x53\x00"),
+		},
 		[]byte("OggS\x00"),
-		[]byte("\x4F\x67\x67\x53\x00"),
 	},
-	MatcherFunc(matchWebmOrMKV),
+
+	// Webm is a subset of MKV, so match Webm first
+	NewFuncMatcher("video/webm", "webm", matchWebm),
+	NewFuncMatcher("video/x-matroska", "mkv", matchMkv),
+
 	&exactSig{"pdf", "application/pdf", []byte("%PDF-")},
 	&maskedSig{
-		"mp3",
-		"audio/mpeg",
+		exactSig{
+			"mp3",
+			"audio/mpeg",
+			[]byte("ID3"),
+		},
 		[]byte("\xFF\xFF\xFF"),
-		[]byte("ID3"),
 	},
-	MatcherFunc(matchMP4),
+	NewFuncMatcher("video/mp4", "mp4", matchMP4),
 	&exactSig{"aac", "audio/aac", []byte("ÿñ")},
 	&exactSig{"aac", "audio/aac", []byte("ÿù")},
 	&exactSig{"bmp", "image/bmp", []byte("BM")},
 	&maskedSig{
-		"wav",
-		"audio/wave",
+		exactSig{
+			"wav",
+			"audio/wave",
+			[]byte("RIFF\x00\x00\x00\x00WAVE"),
+		},
 		[]byte("\xFF\xFF\xFF\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF"),
-		[]byte("RIFF\x00\x00\x00\x00WAVE"),
 	},
 	&maskedSig{
-		"avi",
-		"video/avi",
+		exactSig{
+			"avi",
+			"video/avi",
+			[]byte("RIFF\x00\x00\x00\x00AVI "),
+		},
 		[]byte("\xFF\xFF\xFF\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF"),
-		[]byte("RIFF\x00\x00\x00\x00AVI "),
 	},
 	&exactSig{"psd", "image/photoshop", []byte("8BPS")},
 	&exactSig{"flac", "audio/x-flac", []byte("fLaC")},
@@ -67,11 +86,14 @@ var matchers = []Matcher{
 	&exactSig{"flv", "video/x-flv", []byte("FLV\x01")},
 	&exactSig{"ico", "image/x-icon", []byte("\x00\x00\x01\x00")},
 	&maskedSig{
-		"midi",
-		"audio/midi",
+		exactSig{
+			"midi",
+			"audio/midi",
+			[]byte("MThd\x00\x00\x00\x06"),
+		},
 		[]byte("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
-		[]byte("MThd\x00\x00\x00\x06"),
 	},
+	NewFuncMatcher("audio/mpeg", "mp3", matchMp3),
 }
 
 var (
@@ -82,18 +104,19 @@ var (
 // Processor is a specialized file processor for a specific file type
 type Processor func(*Source, Options) (Thumbnail, error)
 
-// Matcher takes up to the first 512 bytes of a file and returns the MIME type
-// and canonical extension, that were matched. Empty string indicates no match.
+// Matcher determines if a file matches an MIME type
 type Matcher interface {
-	Match([]byte) (mime string, extension string)
-}
+	// Takes up to the first 512 bytes of a file and returns, if the MIME type
+	//  was matched.
+	// If additional data is needed, it may use rs to read data beyond the first
+	// 512 bytes.
+	Match(start []byte, rs io.ReadSeeker) bool
 
-// MatcherFunc is an adapter that allows using functions as Matcher
-type MatcherFunc func([]byte) (string, string)
+	// Returns MIME type
+	MIME() string
 
-// Match implements Matcher
-func (fn MatcherFunc) Match(data []byte) (string, string) {
-	return fn(data)
+	// Returns canonical MIME type extension without leading dot
+	Ext() string
 }
 
 type exactSig struct {
@@ -101,47 +124,95 @@ type exactSig struct {
 	sig       []byte
 }
 
-func (e *exactSig) Match(data []byte) (string, string) {
-	if bytes.HasPrefix(data, e.sig) {
-		return e.mime, e.ext
-	}
-	return "", ""
+func (e *exactSig) Match(data []byte, _ io.ReadSeeker) bool {
+	return bytes.HasPrefix(data, e.sig)
+}
+
+func (e *exactSig) MIME() string {
+	return e.mime
+}
+
+func (e *exactSig) Ext() string {
+	return e.ext
 }
 
 type maskedSig struct {
-	ext, mime string
-	mask, pat []byte
+	exactSig
+	mask []byte
 }
 
-func (m *maskedSig) Match(data []byte) (string, string) {
+func (m *maskedSig) Match(data []byte, _ io.ReadSeeker) bool {
 	if len(data) < len(m.mask) {
-		return "", ""
+		return false
 	}
 	for i, mask := range m.mask {
 		db := data[i] & mask
-		if db != m.pat[i] {
-			return "", ""
+		if db != m.sig[i] {
+			return false
 		}
 	}
-	return m.mime, m.ext
+	return true
 }
 
-func matchWebmOrMKV(data []byte) (string, string) {
-	switch {
-	case len(data) < 8 || !bytes.HasPrefix(data, []byte("\x1A\x45\xDF\xA3")):
-		return "", ""
-	case bytes.Contains(data[4:], []byte("webm")):
-		return "video/webm", "webm"
-	case bytes.Contains(data[4:], []byte("matroska")):
-		return "video/x-matroska", "mkv"
-	default:
-		return "", ""
+// Matches a MIME type with a provided function
+type funcMatcher struct {
+	exactSig
+	match MatchFunc
+}
+
+func (f *funcMatcher) Match(start []byte, rs io.ReadSeeker) bool {
+	return f.match(start, rs)
+}
+
+type MatchFunc func(start []byte, rs io.ReadSeeker) bool
+
+// Constructs a Matcher from a a function
+func NewFuncMatcher(mime, ext string, fn MatchFunc) Matcher {
+	return &funcMatcher{
+		exactSig{
+			ext,
+			mime,
+			nil,
+		},
+		fn,
 	}
 }
 
-func matchMP4(data []byte) (string, string) {
+func matchWebm(data []byte, _ io.ReadSeeker) bool {
+	return matchWebmOrMkv(data, []byte("webm"))
+}
+
+func matchMkv(data []byte, _ io.ReadSeeker) bool {
+	return matchWebmOrMkv(data, []byte("matroska"))
+}
+
+func matchWebmOrMkv(data []byte, contains []byte) bool {
+	return len(data) > 8 &&
+		bytes.HasPrefix(data, []byte("\x1A\x45\xDF\xA3")) &&
+		bytes.Contains(data[4:], contains)
+}
+
+// MP3 is a retarded standard, that will not always even have a magic number.
+// Need to detect with FFMPEG as a last resort.
+func matchMp3(_ []byte, rs io.ReadSeeker) bool {
+	buf, err := execCommand(
+		rs, "ffprobe", "-",
+		"-hide_banner",
+		"-v", "fatal",
+		"-of", "compact",
+		"-show_entries", "format=format_name",
+	)
+	if err != nil {
+		return false
+	}
+	defer PutBuffer(buf)
+
+	return strings.TrimPrefix(buf.String(), "format|format_name=") == "mp3"
+}
+
+func matchMP4(data []byte, _ io.ReadSeeker) (matched bool) {
 	if len(data) < 12 {
-		return "", ""
+		return
 	}
 
 	boxSize := int(binary.BigEndian.Uint32(data[:4]))
@@ -149,7 +220,7 @@ func matchMP4(data []byte) (string, string) {
 		len(data) < boxSize ||
 		!bytes.Equal(data[4:8], []byte("ftyp"))
 	if nope {
-		return "", ""
+		return
 	}
 
 	for st := 8; st < boxSize; st += 4 {
@@ -158,41 +229,10 @@ func matchMP4(data []byte) (string, string) {
 			continue
 		}
 		if bytes.Equal(data[st:st+3], []byte("mp4")) {
-			return "video/mp4", "mp4"
+			return true
 		}
 	}
-	return "", ""
-}
-
-// MP3 is a retarded standard, that will not always even have a magic number.
-// Need to detect with FFMPEG as a last resort.
-func matchMP3(data []byte) (mime string, ext string) {
-	buf, err := execCommand(
-		data, "ffprobe", "-",
-		"-hide_banner",
-		"-v", "fatal",
-		"-of", "compact",
-		"-show_entries", "format=format_name",
-	)
-	if err != nil {
-		return
-	}
-	defer PutBuffer(buf)
-
-	s := strings.TrimPrefix(buf.String(), "format|format_name=")
-	if s == "mp3" {
-		return "audio/mpeg", s
-	}
 	return
-}
-
-// UnsupportedMIMEError indicates the MIME type of the file could not be
-// detected as a supported type or was not in the AcceptedMimeTypes list, if
-// defined.
-type UnsupportedMIMEError string
-
-func (u UnsupportedMIMEError) Error() string {
-	return fmt.Sprintf("unsupported MIME type: %s", string(u))
 }
 
 // RegisterMatcher adds an extra magic prefix-based MIME type matcher to the
@@ -209,53 +249,43 @@ func RegisterProcessor(mime string, fn Processor) {
 	overrideProcessors[mime] = fn
 }
 
-// DetectMIME  detects the MIME type of r. r must be at starting position.
+// DetectMIME detects the MIME type of rs.
 // accepted, if not nil, specifies MIME types to not reject with
-// UnsupportedMIMEError.
+// ErrUnsupportedMIME.
 // Returns mime type, most common file extension and any error.
-func DetectMIME(r io.Reader, accepted map[string]bool) (
+func DetectMIME(rs io.ReadSeeker, accepted map[string]bool) (
 	mime string, ext string, err error,
 ) {
-	buf := GetBuffer()
-	defer PutBuffer(buf)
-	_, err = buf.ReadFrom(r)
+	_, err = rs.Seek(0, 0)
 	if err != nil {
 		return
 	}
-	return DetectMIMEBuffer(buf.Bytes(), accepted)
-}
 
-// DetectMIMEBuffer is like DetectMIME, but accepts a []byte slice already
-// loaded into memory.
-func DetectMIMEBuffer(buf []byte, accepted map[string]bool) (
-	mime string, ext string, err error,
-) {
+	// Read up to first 512 bytes
+	buf := make([]byte, sniffSize)
+	read, err := rs.Read(buf)
+	switch err {
+	case nil, io.EOF:
+		// NOOP, if 512 bytes were read. Otherwise - shortens the buffer.
+		buf = buf[:read]
+	default:
+		return
+	}
+
 	for _, m := range matchers {
-		mime, ext = m.Match(buf)
-		if mime != "" {
-			break
+		if (accepted == nil || accepted[m.MIME()]) && m.Match(buf, rs) {
+			mime = m.MIME()
+			ext = m.Ext()
+			return
 		}
 	}
 
-	if mime == "" && (accepted == nil || accepted["audio/mpeg"]) {
-		mime, ext = matchMP3(buf)
-	}
-
-	switch {
-	case mime == "":
-		err = UnsupportedMIMEError("application/octet-stream")
-	// Check if MIME is accepted, if specified
-	case accepted != nil && !accepted[mime]:
-		err = UnsupportedMIMEError(mime)
-	}
+	err = ErrUnsupportedMIME
 	return
 }
 
 func processFile(src *Source, opts Options) (thumb Thumbnail, err error) {
-	src.Mime, src.Extension, err = DetectMIMEBuffer(
-		src.Data,
-		opts.AcceptedMimeTypes,
-	)
+	src.Mime, src.Extension, err = DetectMIME(src.Data, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}
@@ -285,13 +315,14 @@ func processFile(src *Source, opts Options) (thumb Thumbnail, err error) {
 		"application/ogg",
 		"video/webm",
 		"video/x-matroska",
-		"video/mp4",
 		"video/avi",
+		"video/mp4",
 		"video/quicktime",
 		"video/x-ms-wmv",
 		"video/x-flv":
 		return processVideo(src, opts)
 	default:
-		return Thumbnail{}, UnsupportedMIMEError(src.Mime)
+		err = ErrUnsupportedMIME
+		return
 	}
 }

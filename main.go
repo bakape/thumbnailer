@@ -16,7 +16,8 @@ type Thumbnail struct {
 	// be PNG.
 	IsPNG bool
 
-	Image
+	Data []byte
+	Dims
 }
 
 // Source stores the source image, including information about the source file
@@ -36,7 +37,8 @@ type Source struct {
 	// Canonical file extension
 	Extension string
 
-	Image
+	Data io.ReadSeeker
+	Dims
 }
 
 // Dims store the dimensions of an image
@@ -67,20 +69,7 @@ type Options struct {
 
 // Process generates a thumbnail from a file of unknown type and performs some
 // basic meta information extraction
-func Process(r io.Reader, opts Options) (Source, Thumbnail, error) {
-	buf := GetBuffer()
-	_, err := buf.ReadFrom(r)
-	if err != nil {
-		return Source{}, Thumbnail{}, err
-	}
-	return ProcessBuffer(buf.Bytes(), opts)
-}
-
-// ProcessBuffer is like Process, but takes []byte as input.
-// More efficient, if you already have the file buffered into memory.
-func ProcessBuffer(buf []byte, opts Options) (
-	src Source, thumb Thumbnail, err error,
-) {
+func Process(r io.ReadSeeker, opts Options) (Source, Thumbnail, error) {
 	if opts.JPEGQuality == 0 {
 		opts.JPEGQuality = 75
 	}
@@ -88,7 +77,9 @@ func ProcessBuffer(buf []byte, opts Options) (
 		opts.PNGQuality = 30
 	}
 
-	src.Data = buf
-	thumb, err = processFile(&src, opts)
-	return
+	src := Source{
+		Data: r,
+	}
+	thumb, err := processFile(&src, opts)
+	return src, thumb, err
 }

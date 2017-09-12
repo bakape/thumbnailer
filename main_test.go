@@ -37,7 +37,6 @@ func TestProcess(t *testing.T) {
 		"no_sound.flv":        nil,
 		"sample.bmp":          nil,
 		"sample.png":          nil,
-		"with_cover.flac":     nil,
 		"with_sound.mp4":      nil,
 		"odd_dimensions.webm": nil, // Unconventional dims for a YUV stream
 		"alpha.webm":          nil,

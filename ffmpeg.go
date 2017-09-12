@@ -78,7 +78,6 @@ func getMediaInfo(rs io.ReadSeeker) (info mediaInfo, err error) {
 }
 
 func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
-
 	info, err := getMediaInfo(src.Data)
 	if err != nil {
 		return
@@ -150,9 +149,8 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		"-hide_banner",
 		"-an", "-sn",
 		"-frames:v", "1",
-		"-f", "apng", // May have transparency, so always output PNG
+		"-f", "image2", // May have transparency, so always output PNG
 	)
-	thumb.IsPNG = true
 	switch {
 	case src.HasCoverArt:
 	case src.HasVideo:
@@ -169,10 +167,10 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 	}
 	args = append(args, "-")
 
-	pipe := make(pipeLine, 1, 3)
-	pipe[0] = command("ffmpeg", args...)
-	pipe = append(pipe, genThumb(src, &thumb, opts)...)
+	pipe := pipeLine{
+		command("ffmpeg", args...),
+		genThumb(src, &thumb, opts)[0],
+	}
 	thumb.Data, err = pipe.Exec(src.Data)
-
 	return
 }

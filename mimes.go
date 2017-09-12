@@ -198,7 +198,6 @@ func matchMp3(_ []byte, rs io.ReadSeeker) bool {
 	buf, err := execCommand(
 		rs, "ffprobe", "-",
 		"-hide_banner",
-		"-v", "fatal",
 		"-of", "compact",
 		"-show_entries", "format=format_name",
 	)

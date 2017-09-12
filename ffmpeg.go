@@ -65,7 +65,6 @@ func getMediaInfo(rs io.ReadSeeker) (info mediaInfo, err error) {
 		"ffprobe",
 		"-",
 		"-hide_banner",
-		"-v", "fatal",
 		"-of", "json=c=1",
 		"-show_entries", "format=format_name,duration:stream=codec_name,codec_type,width,height",
 	)
@@ -149,7 +148,6 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 	args = append(
 		args,
 		"-hide_banner",
-		"-v", "fatal",
 		"-an", "-sn",
 		"-frames:v", "1",
 		"-f", "apng", // May have transparency, so always output PNG

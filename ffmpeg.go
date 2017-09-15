@@ -54,34 +54,48 @@ func (d *duration) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	*d = duration(time.Duration(f) * time.Second)
+	*d = duration(time.Duration(f * float64(time.Second)))
 	return nil
 }
 
 // Returns media file information
-func getMediaInfo(rs io.ReadSeeker) (info mediaInfo, err error) {
-	buf, err := execCommand(
-		rs,
-		"ffprobe",
-		"-",
+func getMediaInfo(src *Source) (err error) {
+	var (
+		info mediaInfo
+		args = make([]string, 0, 16)
+	)
+
+	// OGG does not support duration detection without seeking
+	if src.Mime == "application/ogg" {
+		var tmp string
+		tmp, err = dumpToTemp(src.data)
+		if err != nil {
+			return
+		}
+		defer os.Remove(tmp)
+		args = append(args, tmp)
+	} else {
+		args = append(args, "-")
+	}
+
+	args = append(
+		args,
 		"-hide_banner",
 		"-of", "json=c=1",
 		"-show_entries", "format=format_name,duration:stream=codec_name,codec_type,width,height",
 	)
+
+	buf, err := execCommand(src.data, "ffprobe", args...)
 	if err != nil {
 		return
 	}
 	defer PutBuffer(buf)
 
 	err = json.Unmarshal(buf.Bytes(), &info)
-	return
-}
-
-func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
-	info, err := getMediaInfo(src.data)
 	if err != nil {
 		return
 	}
+
 	src.Length = time.Duration(info.Format.Duration)
 
 	// Detect any audio stream, video stream and/or cover art
@@ -108,45 +122,37 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		}
 	}
 
+	return
+}
+
+func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
+	err = getMediaInfo(src)
+	if err != nil {
+		return
+	}
 	err = handleDims(src, &thumb, opts)
 	if err != nil {
 		return
 	}
 
 	// MP4 and its offspiring need input seeking and thus can not be piped in.
-	// Write a temp file to disk
-	var (
-		tmp   *os.File
-		isMP4 bool
-	)
+	// Write a temp file to disk.
+	var tmp string
 	switch src.Mime {
 	case "video/mp4", "video/quicktime":
-		isMP4 = true
-
-		_, err = src.data.Seek(0, 0)
+		tmp, err = dumpToTemp(src.data)
 		if err != nil {
 			return
 		}
-
-		tmp, err = ioutil.TempFile("", "thumbnailer-")
-		if err != nil {
-			return
-		}
-		defer tmp.Close()
-		defer os.Remove(tmp.Name())
-
-		_, err = io.Copy(tmp, src.data)
-		if err != nil {
-			return
-		}
+		defer os.Remove(tmp)
 	}
 
 	// TODO
 	// c.ExtractMeta(&src)
 
 	args := append(make([]string, 0, 16), "-i")
-	if isMP4 {
-		args = append(args, tmp.Name())
+	if tmp != "" {
+		args = append(args, tmp)
 	} else {
 		args = append(args, "-")
 	}
@@ -155,7 +161,7 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 		"-hide_banner",
 		"-an", "-sn",
 		"-frames:v", "1",
-		"-f", "image2", // May have transparency, so always output PNG
+		"-f", "image2",
 	)
 	switch {
 	case src.HasCoverArt:
@@ -179,4 +185,26 @@ func processVideo(src *Source, opts Options) (thumb Thumbnail, err error) {
 	}
 	thumb.Data, err = pipe.Exec(src.data)
 	return
+}
+
+// Dump data to a temp file on disk.
+// The caller is responsible for removing the file.
+func dumpToTemp(rs io.ReadSeeker) (name string, err error) {
+	_, err = rs.Seek(0, 0)
+	if err != nil {
+		return
+	}
+
+	tmp, err := ioutil.TempFile("", "thumbnailer-")
+	if err != nil {
+		return
+	}
+	defer tmp.Close()
+
+	_, err = io.Copy(tmp, rs)
+	if err != nil {
+		return
+	}
+
+	return tmp.Name(), nil
 }

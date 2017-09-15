@@ -64,14 +64,16 @@ func TestProcess(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var ext string
-			if thumb.IsPNG {
-				ext = "png"
-			} else {
-				ext = "jpg"
+			if err == nil {
+				var ext string
+				if thumb.IsPNG {
+					ext = "png"
+				} else {
+					ext = "jpg"
+				}
+				name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
+				writeSample(t, name, thumb.Data)
 			}
-			name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
-			writeSample(t, name, thumb.Data)
 
 			src.data = nil
 			thumb.Data = nil

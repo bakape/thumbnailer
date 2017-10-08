@@ -23,6 +23,7 @@ func (c *FFContext) CoverArt() []byte {
 	if img.size <= 0 || img.data == nil {
 		return nil
 	}
+	defer C.free(unsafe.Pointer(img.data))
 	return C.GoBytes(unsafe.Pointer(img.data), img.size)
 }
 

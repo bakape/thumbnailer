@@ -24,7 +24,7 @@ func (c *FFContext) CoverArt() []byte {
 		return nil
 	}
 	defer C.free(unsafe.Pointer(img.data))
-	return C.GoBytes(unsafe.Pointer(img.data), img.size)
+	return copyCBuffer(unsafe.Pointer(img.data), img.size)
 }
 
 func processAudio(src Source, opts Options) (Source, Thumbnail, error) {

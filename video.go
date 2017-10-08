@@ -35,7 +35,7 @@ func (c *FFContext) Thumbnail() (thumb Image, err error) {
 		err = ErrGetFrame
 	default:
 		p := unsafe.Pointer(img.data)
-		thumb.Data = C.GoBytes(p, C.int(img.size))
+		thumb.Data = copyCBuffer(p, C.int(img.size))
 		C.free(p)
 		thumb.Width = uint(img.width)
 		thumb.Height = uint(img.height)

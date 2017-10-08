@@ -19,7 +19,9 @@ var (
 	ErrThumbnailingUnknown = errors.New("unknown thumbnailing error")
 )
 
-// Image stores an image of known dimensions
+// Image stores an image of known dimensions.
+// To decrease allocations call ReturnBuffer() on Data, after you are done using
+// Image.
 type Image struct {
 	Data []byte
 	Dims
@@ -85,7 +87,7 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 	thumbnail := Thumbnail{
 		IsPNG: bool(thumb.isPNG),
 		Image: Image{
-			Data: C.GoBytes(
+			Data: copyCBuffer(
 				unsafe.Pointer(thumb.img.data),
 				C.int(thumb.img.size),
 			),

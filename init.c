@@ -6,42 +6,42 @@
 
 void magickInit()
 {
-	InitializeMagick(NULL);
+    InitializeMagick(NULL);
 
 #ifndef _WIN32
 
 #if defined(SIGCHLD)
-	fixSignal(SIGCHLD);
+    fixSignal(SIGCHLD);
 #endif
 #if defined(SIGHUP)
-	fixSignal(SIGHUP);
+    fixSignal(SIGHUP);
 #endif
 #if defined(SIGINT)
-	fixSignal(SIGINT);
+    fixSignal(SIGINT);
 #endif
 #if defined(SIGQUIT)
-	fixSignal(SIGQUIT);
+    fixSignal(SIGQUIT);
 #endif
 #if defined(SIGABRT)
-	fixSignal(SIGABRT);
+    fixSignal(SIGABRT);
 #endif
 #if defined(SIGFPE)
-	fixSignal(SIGFPE);
+    fixSignal(SIGFPE);
 #endif
 #if defined(SIGTERM)
-	fixSignal(SIGTERM);
+    fixSignal(SIGTERM);
 #endif
 #if defined(SIGBUS)
-	fixSignal(SIGBUS);
+    fixSignal(SIGBUS);
 #endif
 #if defined(SIGSEGV)
-	fixSignal(SIGSEGV);
+    fixSignal(SIGSEGV);
 #endif
 #if defined(SIGXCPU)
-	fixSignal(SIGXCPU);
+    fixSignal(SIGXCPU);
 #endif
 #if defined(SIGXFSZ)
-	fixSignal(SIGXFSZ);
+    fixSignal(SIGXFSZ);
 #endif
 
 #endif
@@ -52,13 +52,13 @@ void magickInit()
 // runtime
 static void fixSignal(int signum)
 {
-	struct sigaction st;
+    struct sigaction st;
 
-	if (sigaction(signum, NULL, &st) < 0) {
-		return;
-	}
+    if (sigaction(signum, NULL, &st) < 0) {
+        return;
+    }
 
-	st.sa_flags |= SA_ONSTACK;
-	sigaction(signum, &st, NULL);
+    st.sa_flags |= SA_ONSTACK;
+    sigaction(signum, &st, NULL);
 }
 #endif

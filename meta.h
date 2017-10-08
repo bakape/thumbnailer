@@ -4,9 +4,8 @@
 #include <stdint.h>
 
 struct Meta {
-	char* title;
-	char* artist;
+    char* title;
+    char* artist;
 };
 
-struct Meta retrieve_meta(AVFormatContext *ctx);
-
+struct Meta retrieve_meta(AVFormatContext* ctx);

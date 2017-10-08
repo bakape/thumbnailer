@@ -74,7 +74,7 @@ int thumbnail(struct Buffer* src, struct Thumbnail* thumb,
     thumb->img.height = (unsigned long)((double)img->rows / scale);
 
     // Subsample to 4 times the thumbnail size. A decent enough compromise
-    // between quality and performance for images arround the thumbnail size
+    // between quality and performance for images around the thumbnail size
     // and much bigger ones.
     sampled = SampleImage(img, thumb->img.width * 4, thumb->img.height * 4, ex);
     if (!sampled) {
@@ -109,7 +109,7 @@ end:
     return err;
 }
 
-// Convert thumbnail to apropriate file type and write to buffer
+// Convert thumbnail to appropriate file type and write to buffer
 static int writeThumb(Image* img, struct Thumbnail* thumb,
     const struct Options opts, ExceptionInfo* ex)
 {
@@ -140,7 +140,7 @@ static int writeThumb(Image* img, struct Thumbnail* thumb,
     return 0;
 }
 
-// Itterates over all pixels and checks, if any transparency present
+// Iterates over all pixels and checks, if any transparency present
 static int hasTransparency(
     const Image const* img, bool* needPNG, ExceptionInfo* ex)
 {

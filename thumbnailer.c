@@ -39,7 +39,7 @@ int thumbnail(struct Buffer* src, struct Thumbnail* thumb,
     src->width = img->columns;
     src->height = img->rows;
 
-    // Validate dimentions
+    // Validate dimensions
     if (strcmp(img->magick, "PDF")) {
         const unsigned long maxW = opts.maxSrcDims.width;
         const unsigned long maxH = opts.maxSrcDims.height;

@@ -75,12 +75,13 @@ func processVideo(source Source, opts Options) (
 
 	c.ExtractMeta(&src)
 
+	original := src.Data
 	src.Image, err = c.Thumbnail()
 	if err != nil {
 		return
 	}
-	original := src.Data
 	src, thumb, err = processImage(src, opts)
+	ReturnBuffer(src.Data)
 	src.Data = original
 	return
 }

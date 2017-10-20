@@ -1,5 +1,4 @@
 #include "video.h"
-#include <libavfilter/avfilter.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 

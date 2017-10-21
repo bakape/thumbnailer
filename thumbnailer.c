@@ -6,7 +6,7 @@ int thumbnail(struct Buffer* src, struct Thumbnail* thumb,
     const struct Options opts, ExceptionInfo* ex)
 {
     ImageInfo* info = NULL;
-    Image *img = NULL, *sampled = NULL, *scaled = NULL;
+    Image *img = NULL, *sampled = NULL, *scaled = NULL, *oriented = NULL;
     double scale;
     int err = 0;
 
@@ -52,6 +52,20 @@ int thumbnail(struct Buffer* src, struct Thumbnail* thumb,
             goto end;
         }
     }
+
+    // Rotate image based on EXIF metadata, if needed
+    if (img->orientation > TopLeftOrientation) {
+        oriented = AutoOrientImage(img, img->orientation, ex);
+        if (!oriented) {
+            goto end;
+        }
+        DestroyImage(img);
+        img = oriented;
+        oriented = NULL;
+    }
+
+    // Strip EXIF metadata, if any. Fail silently.
+    DeleteImageProfile(img, "EXIF");
 
     const unsigned long thumbW = opts.thumbDims.width;
     const unsigned long thumbH = opts.thumbDims.height;
@@ -102,6 +116,9 @@ end:
     }
     if (scaled) {
         DestroyImage(scaled);
+    }
+    if (oriented) {
+        DestroyImage(oriented);
     }
     if (!err) {
         return thumb->img.data == NULL;

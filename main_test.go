@@ -41,6 +41,7 @@ var samples = []string{
 	"odd_dimensions.webm", // Unconventional dims for a YUV stream
 	"alpha.webm",
 	"start_black.webm", // Check the histogram thumbnailing
+	"exif_orientation.jpg",
 }
 
 func TestProcess(t *testing.T) {

@@ -8,6 +8,7 @@ ffmpeg bindings.
 For a comprehensive list of file formats supported by default, check the `matchers` slice in `mime.go`.
 
 ## Dependencies
+* Go >= 1.9.2
 * GCC or Clang
 * make
 * pkg-config

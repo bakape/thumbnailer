@@ -2,7 +2,6 @@ package thumbnailer
 
 // #cgo pkg-config: GraphicsMagick
 // #cgo CFLAGS: -std=c11 -D_POSIX_C_SOURCE
-// #include "init.h"
 // #include "thumbnailer.h"
 // #include <stdlib.h>
 import "C"
@@ -28,7 +27,7 @@ type Image struct {
 }
 
 func init() {
-	C.magickInit()
+	C.InitializeMagick(nil)
 }
 
 // processImage generates a thumbnail from a source image buffer. If width and

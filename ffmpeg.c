@@ -4,6 +4,16 @@ const int bufSize = 1 << 12;
 
 pthread_mutex_t codecMu = PTHREAD_MUTEX_INITIALIZER;
 
+void init(void) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+	av_register_all();
+#endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 10, 100)
+	avcodec_register_all();
+#endif
+	av_log_set_level(16);
+}
+
 // Initialize am AVFormatContext with the buffered file
 int create_context(AVFormatContext** ctx)
 {

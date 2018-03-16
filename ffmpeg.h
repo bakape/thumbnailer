@@ -5,6 +5,7 @@
 extern int readCallBack(void *, uint8_t *, int);
 extern int64_t seekCallBack(void *, int64_t, int);
 
+void init(void);
 int create_context(AVFormatContext **ctx);
 void destroy(AVFormatContext *ctx);
 int codec_context(AVCodecContext **avcc,

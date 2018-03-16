@@ -35,9 +35,7 @@ var (
 )
 
 func init() {
-	C.av_register_all()
-	C.avcodec_register_all()
-	C.av_log_set_level(16)
+	C.init()
 }
 
 // C can not retain any pointers to Go memory after the cgo call returns. We

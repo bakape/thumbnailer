@@ -42,6 +42,7 @@ var samples = []string{
 	"alpha.webm",
 	"start_black.webm", // Check the histogram thumbnailing
 	"exif_orientation.jpg",
+	"rare_brand.mp4",
 }
 
 func TestProcess(t *testing.T) {

@@ -158,7 +158,8 @@ func matchMP4(data []byte) (string, string) {
 			// minor version number
 			continue
 		}
-		if bytes.Equal(data[st:st+3], []byte("mp4")) {
+		if bytes.Equal(data[st:st+3], []byte("mp4")) ||
+			bytes.Equal(data[st:st+4], []byte("dash")) {
 			return "video/mp4", "mp4"
 		}
 	}

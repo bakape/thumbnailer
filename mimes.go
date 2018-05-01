@@ -178,7 +178,7 @@ func matchMP3(data []byte) (mime string, ext string) {
 	if err != nil {
 		return
 	}
-	if codec == "mp3" {
+	if codec == "mp3" || codec == "mp3float" {
 		return "audio/mpeg", "mp3"
 	}
 	return

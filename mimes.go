@@ -38,6 +38,7 @@ var matchers = []Matcher{
 		[]byte("\xFF\xFF\xFF"),
 		[]byte("ID3"),
 	},
+	&exactSig{"mp3", "audio/mpeg", []byte("\xFF\xFB")},
 	MatcherFunc(matchMP4),
 	&exactSig{"aac", "audio/aac", []byte("ÿñ")},
 	&exactSig{"aac", "audio/aac", []byte("ÿù")},

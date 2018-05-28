@@ -7,16 +7,8 @@ package thumbnailer
 // #include <stdlib.h>
 import "C"
 import (
-	"errors"
 	"fmt"
 	"unsafe"
-)
-
-// Thumbnailing errors
-var (
-	ErrTooWide             = errors.New("image too wide")
-	ErrTooTall             = errors.New("image too tall")
-	ErrThumbnailingUnknown = errors.New("unknown thumbnailing error")
 )
 
 // Image stores an image of known dimensions.
@@ -103,5 +95,5 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 func extractError(ex C.ExceptionInfo) error {
 	r := C.GoString(ex.reason)
 	d := C.GoString(ex.description)
-	return fmt.Errorf(`thumbnailer: %s: %s`, r, d)
+	return fmt.Errorf(`graphicsmagick: %s: %s`, r, d)
 }

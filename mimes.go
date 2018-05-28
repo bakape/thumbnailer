@@ -3,7 +3,6 @@ package thumbnailer
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 )
 
@@ -183,15 +182,6 @@ func matchMP3(data []byte) (mime string, ext string) {
 		return "audio/mpeg", "mp3"
 	}
 	return
-}
-
-// UnsupportedMIMEError indicates the MIME type of the file could not be
-// detected as a supported type or was not in the AcceptedMimeTypes list, if
-// defined.
-type UnsupportedMIMEError string
-
-func (u UnsupportedMIMEError) Error() string {
-	return fmt.Sprintf("unsupported MIME type: %s", string(u))
 }
 
 // RegisterMatcher adds an extra magic prefix-based MIME type matcher to the

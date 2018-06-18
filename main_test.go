@@ -256,26 +256,3 @@ func TestWebmAlpha(t *testing.T) {
 		t.Errorf("should contain alpha channel")
 	}
 }
-
-// Called on `go test -args all`
-func TestPanic(t *testing.T) {
-	if len(os.Args) != 2 || os.Args[1] != "all" {
-		t.Skip("Skipping panic test because it's not fixed yet")
-	}
-
-	type B struct {
-		c int
-	}
-	type A struct {
-		b *B
-	}
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
-	a := A{nil}
-	fmt.Println(a.b.c)
-}

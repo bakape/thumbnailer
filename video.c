@@ -27,21 +27,12 @@ static double compute_error(
     return sum_sq_err;
 }
 
-// RGB color distribution histograms of the frames. Reused between all calls to
-// avoid allocations. Need lock of hist_mu.
-static int hists[MAX_FRAMES][HIST_SIZE];
-pthread_mutex_t hist_mu = PTHREAD_MUTEX_INITIALIZER;
-
 // Select best frame based on RGB histograms
-static int select_best_frame(AVFrame* frames[], int* best_i)
+static int select_best_frame(AVFrame* frames[])
 {
-    int err = pthread_mutex_lock(&hist_mu);
-    if (err) {
-        return err;
-    }
-
-    // First rezero after last use
-    memset(hists, 0, sizeof(int) * MAX_FRAMES * HIST_SIZE);
+    int best_i = 0;
+    // RGB color distribution histograms of the frames
+    int hists[MAX_FRAMES][HIST_SIZE] = { 0 };
 
     // Compute each frame's histogram
     int frame_i;
@@ -76,12 +67,12 @@ static int select_best_frame(AVFrame* frames[], int* best_i)
     for (int i = 0; i <= frame_i; i++) {
         const double sq_err = compute_error(hists[i], average);
         if (i == 0 || sq_err < min_sq_err) {
-            *best_i = i;
+            best_i = i;
             min_sq_err = sq_err;
         }
     }
 
-    return pthread_mutex_unlock(&hist_mu);
+    return best_i;
 }
 
 // Encode frame to RGBA image
@@ -116,7 +107,6 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
     AVCodecContext* avcc, const int stream)
 {
     int err = 0;
-    int best_frame = 0;
     int frame_i = 0;
     AVPacket pkt;
     AVFrame* frames[MAX_FRAMES] = { 0 };
@@ -147,6 +137,10 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
 
             if (!frames[frame_i]) {
                 frames[frame_i] = av_frame_alloc();
+                if (!frames[frame_i]) {
+                    err = AVERROR(ENOMEM);
+                    goto end;
+                }
             }
             err = avcodec_receive_frame(avcc, frames[frame_i]);
             switch (err) {
@@ -172,10 +166,7 @@ end:
     case AVERROR_EOF:
         err = 0;
     case 0:
-        err = select_best_frame(frames, &best_frame);
-        if (!err) {
-            err = encode_frame(img, frames[best_frame]);
-        }
+        err = encode_frame(img, frames[select_best_frame(frames)]);
         break;
     }
     av_packet_unref(&pkt);

@@ -4,8 +4,16 @@ Package thumbnailer provides a more efficient image/video/audio/PDF thumbnailer
 than available with native Go processing libraries through GraphicsMagic and
 ffmpeg bindings.
 
-
 For a comprehensive list of file formats supported by default, check the `matchers` slice in `mime.go`.
+
+## License
+GNU GENERAL PUBLIC LICENSE / MIT License
+
+Depending on how the project is built it can be licensed under either MIT or
+GPLv3. Thumbnailer links against the GPLv3-licensed libimagequant for lossy PNG
+thumbnail compression by default and thus also becomes applicable under the
+GPLv3. To build thumbnailer without this feature under the MIT license, please
+specify `--tags=MIT` when building the project. See LICENSE for more details.
 
 ## Dependencies
 * Go >= 1.10

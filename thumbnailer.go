@@ -1,16 +1,8 @@
 package thumbnailer
 
 // #cgo pkg-config: GraphicsMagick++
-// #cgo CFLAGS: -std=c11 -O3 -D_POSIX_C_SOURCE -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
-// #cgo CXXFLAGS: -std=c++17 -O3 -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
-// #cgo LDFLAGS: -lm
-// #include "blur.c"
-// #include "kmeans.c"
-// #include "libimagequant.c"
-// #include "mediancut.c"
-// #include "mempool.c"
-// #include "nearest.c"
-// #include "pam.c"
+// #cgo CFLAGS: -std=c11 -O3 -D_POSIX_C_SOURCE
+// #cgo CXXFLAGS: -std=c++17 -O3
 // #include "init.h"
 // #include "thumbnailer.h"
 // #include <stdlib.h>

@@ -270,7 +270,14 @@ static void _thumbnail(
 
     // Rotate image based on EXIF metadata, if needed
     if (img.orientation() > Magick::OrientationType::TopLeftOrientation) {
-        img.autoOrient();
+        // As of writing the Magick::Image::autoOrient() method is not yet in
+        // the GraphicsMagick++ version in Debian stable repos. Inlined it here.
+        MagickLib::ExceptionInfo exceptionInfo;
+        MagickLib::GetExceptionInfo(&exceptionInfo);
+        MagickLib::Image* newImage
+            = AutoOrientImage(img.image(), img.orientation(), &exceptionInfo);
+        img.replaceImage(newImage);
+        Magick::throwException(exceptionInfo);
     }
     // Strip EXIF metadata, if any
     img.strip();

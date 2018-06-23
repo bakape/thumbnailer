@@ -86,7 +86,7 @@ static int encode_frame(struct Buffer* img, const AVFrame const* frame)
         frame->width, frame->height, AV_PIX_FMT_RGBA,
         SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);
     if (!ctx) {
-        return -1;
+        return AVERROR(ENOMEM);
     }
 
     img->width = (unsigned long)frame->width;
@@ -148,20 +148,20 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
                 if (++frame_i == MAX_FRAMES) {
                     goto end;
                 }
-                av_packet_unref(&pkt);
-                continue;
+                break;
             case AVERROR(EAGAIN):
-                av_packet_unref(&pkt);
-                continue;
+                break;
             default:
                 goto end;
             }
-        } else {
-            av_packet_unref(&pkt);
         }
+        av_packet_unref(&pkt);
     }
 
 end:
+    if (pkt.data) {
+        av_packet_unref(&pkt);
+    }
     switch (err) {
     case AVERROR_EOF:
         err = 0;
@@ -169,7 +169,6 @@ end:
         err = encode_frame(img, frames[select_best_frame(frames)]);
         break;
     }
-    av_packet_unref(&pkt);
     for (int i = 0; i < MAX_FRAMES; i++) {
         if (!frames[i]) {
             break;

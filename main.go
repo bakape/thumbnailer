@@ -50,6 +50,12 @@ type Options struct {
 	// JPEG thumbnail quality to use. [0,100]
 	JPEGQuality uint8
 
+	PNGQuality struct {
+		// Minimum and maximum quality for lossy PNG compression with
+		// libimagequant. [0,100]. Defaults to 0-100.
+		Min, Max uint
+	}
+
 	// Maximum source image dimensions. Any image exceeding either will be
 	// rejected and return with ErrTooTall or ErrTooWide. If not set, all images
 	// are processed.

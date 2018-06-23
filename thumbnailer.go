@@ -1,13 +1,22 @@
 package thumbnailer
 
-// #cgo pkg-config: GraphicsMagick
-// #cgo CFLAGS: -std=c11 -D_POSIX_C_SOURCE
+// #cgo pkg-config: GraphicsMagick++
+// #cgo CFLAGS: -std=c11 -O3 -D_POSIX_C_SOURCE -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
+// #cgo CXXFLAGS: -std=c++17 -O3 -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
+// #cgo LDFLAGS: -lm
+// #include "blur.c"
+// #include "kmeans.c"
+// #include "libimagequant.c"
+// #include "mediancut.c"
+// #include "mempool.c"
+// #include "nearest.c"
+// #include "pam.c"
 // #include "init.h"
 // #include "thumbnailer.h"
 // #include <stdlib.h>
 import "C"
 import (
-	"fmt"
+	"errors"
 	"unsafe"
 )
 
@@ -32,13 +41,13 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 		width:  C.ulong(src.Width),
 		height: C.ulong(src.Height),
 	}
-	defer C.free(unsafe.Pointer(srcC.data))
-
-	var ex C.ExceptionInfo
-	defer C.DestroyExceptionInfo(&ex)
 
 	optsC := C.struct_Options{
 		JPEGCompression: C.uint8_t(opts.JPEGQuality),
+		PNGCompression: C.struct_CompressionRange{
+			min: C.uint8_t(opts.PNGQuality.Min),
+			max: C.uint8_t(opts.PNGQuality.Max),
+		},
 		maxSrcDims: C.struct_Dims{
 			width:  C.ulong(opts.MaxSourceDims.Width),
 			height: C.ulong(opts.MaxSourceDims.Height),
@@ -50,27 +59,25 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 	}
 
 	var thumb C.struct_Thumbnail
-	errCode := C.thumbnail(&srcC, &thumb, optsC, &ex)
+	errC := C.thumbnail(&srcC, &thumb, optsC)
 	defer func() {
 		if thumb.img.data != nil {
 			C.free(unsafe.Pointer(thumb.img.data))
 		}
-	}()
-	var err error
-	if ex.reason != nil && ex.severity >= 400 {
-		err = extractError(ex)
-	} else {
-		switch errCode {
-		case 0:
-		case 1:
-			err = ErrThumbnailingUnknown
-		case 2:
-			err = ErrTooWide
-		case 3:
-			err = ErrTooTall
+		if errC != nil {
+			C.free(unsafe.Pointer(errC))
 		}
-	}
-	if err != nil {
+	}()
+	if errC != nil {
+		var err error
+		switch s := C.GoString(errC); s {
+		case "too wide":
+			err = ErrTooWide
+		case "too tall":
+			err = ErrTooTall
+		default:
+			err = errors.New(s)
+		}
 		return src, Thumbnail{}, err
 	}
 
@@ -90,10 +97,4 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 		},
 	}
 	return src, thumbnail, nil
-}
-
-func extractError(ex C.ExceptionInfo) error {
-	r := C.GoString(ex.reason)
-	d := C.GoString(ex.description)
-	return fmt.Errorf(`graphicsmagick: %s: %s`, r, d)
 }

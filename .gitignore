@@ -1,2 +1,4 @@
 .vscode
 testdata/*thumb.*
+.directory
+debug.test

@@ -9,12 +9,12 @@ For a comprehensive list of file formats supported by default, check the `matche
 
 ## Dependencies
 * Go >= 1.10
-* GCC or Clang
+* C11 and C++17 compilers
 * make
 * pkg-config
 * pthread
 * ffmpeg >= 3.1 libraries (libavcodec, libavutil, libavformat, libswscale)
-* GraphicsMagick
+* GraphicsMagick++
 
 NB: ffmpeg and GM should be compiled with all the dependency libraries for
 formats you want to process. On most Linux distributions you should be fine with

@@ -104,30 +104,40 @@ private:
     T* ptr = nullptr;
 };
 
+// Check, if quality is set and valid, or return default
+static uint8_t get_quality(uint8_t def, uint8_t q)
+{
+    if (q && q <= 100) {
+        return q;
+    }
+    return def;
+}
+
 // Lossy PNG compression. img is reused and can be set to NULL after call in
 // case of error.
-static void compress_png(struct Thumbnail* thumb, double gamma,
+static void compress_png(Magick::Image& img, struct Thumbnail* thumb,
     const struct CompressionRange quality)
 {
+    const unsigned width = img.columns(), height = img.rows();
+
     // Prepare handle
     RAII<liq_attr, liq_attr_destroy> handle(liq_attr_create());
     if (!handle) {
         throw LIQError("can not run on this machine");
     }
-    if (quality.min <= 100 && quality.max <= 100) {
-        liq_set_quality(handle, quality.min, quality.max);
+    int err = liq_set_quality(
+        handle, get_quality(10, quality.min), get_quality(100, quality.max));
+    if (err) {
+        throw LIQError(err);
     }
 
     // Read image into libimagequant
-    RAII<void, free> raw_in;
-    unsigned int _w, _h; // Dummies - we already know these
-    int err = lodepng_decode32(
-        (unsigned char**)&raw_in, &_w, &_h, thumb->img.data, thumb->img.size);
-    if (err) {
-        throw LoadpngError(err);
-    }
+    Magick::Blob raw_in;
+    img.magick("RGBA");
+    img.depth(8);
+    img.write(&raw_in);
     RAII<liq_image, liq_image_destroy> input_image(liq_image_create_rgba(
-        handle, raw_in, thumb->img.width, thumb->img.height, gamma));
+        handle, raw_in.data(), width, height, img.gamma()));
     if (!input_image) {
         throw LIQError("error allocating image");
     }
@@ -144,7 +154,7 @@ static void compress_png(struct Thumbnail* thumb, double gamma,
     if (err) {
         throw LIQError(err);
     }
-    const size_t pixels_size = thumb->img.height * thumb->img.width;
+    const size_t pixels_size = width * height;
     RAII<void, free> raw_out(malloc(pixels_size));
     err = liq_write_remapped_image(res, input_image, raw_out, pixels_size);
     if (err) {
@@ -173,13 +183,8 @@ static void compress_png(struct Thumbnail* thumb, double gamma,
             palette->entries[i].a);
     }
 
-    thumb->isPNG = true;
-    free(thumb->img.data);
-    thumb->img.data = NULL;
-    thumb->img.size = 0;
     unsigned int status = lodepng_encode(&thumb->img.data, &thumb->img.size,
-        (const unsigned char*)(void*)raw_out, thumb->img.width,
-        thumb->img.height, &state);
+        (const unsigned char*)(void*)raw_out, width, height, &state);
     if (status) {
         throw LoadpngError(status);
     }
@@ -214,14 +219,15 @@ static void write_thumb(
 {
     const bool need_png = img.magick() != "JPEG" && has_transparency(img);
     if (need_png) {
-        img.magick("PNG");
-        img.quality(105);
         thumb->isPNG = true;
+        return compress_png(img, thumb, opts.PNGCompression);
+        // TODO: only on MIT build flag
+        // img.magick("PNG");
+        // img.quality(105);
+        // img.depth(8);
     } else {
         img.magick("JPEG");
-        if (opts.JPEGCompression <= 100) {
-            img.quality(opts.JPEGCompression);
-        }
+        img.quality(get_quality(75, opts.JPEGCompression));
     }
 
     Magick::Blob out;
@@ -229,12 +235,6 @@ static void write_thumb(
     thumb->img.data = (uint8_t*)malloc(out.length());
     memcpy(thumb->img.data, out.data(), out.length());
     thumb->img.size = out.length();
-
-    // TODO: Fix this. Seems to be outputting only one channel or something
-    // TODO: Convert to RGBA buffer not a PNG intermediary and avoid extra copy
-    // if (need_png) {
-    //     compress_png(thumb, img.gamma(), opts.PNGCompression);
-    // }
 }
 
 static void _thumbnail(

@@ -47,12 +47,12 @@ type Dims struct {
 
 // Options suplied to the Thumbnail function
 type Options struct {
-	// JPEG thumbnail quality to use. [0,100]
+	// JPEG thumbnail quality to use. [1,100]. Defaults to 75.
 	JPEGQuality uint8
 
 	PNGQuality struct {
 		// Minimum and maximum quality for lossy PNG compression with
-		// libimagequant. [0,100]. Defaults to 0-100.
+		// libimagequant. [1,100]. Defaults to 10-100.
 		Min, Max uint
 	}
 

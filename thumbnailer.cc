@@ -105,14 +105,23 @@ static void _thumbnail(
     // Strip EXIF metadata, if any
     img.strip();
 
-    // Maintain aspect ratio
-    const double scale = img.columns() >= img.rows()
-        ? (double)img.columns() / (double)opts.thumbDims.width
-        : (double)img.rows() / (double)opts.thumbDims.height;
-    thumb->img.width = (unsigned long)((double)img.columns() / scale);
-    thumb->img.height = (unsigned long)((double)img.rows() / scale);
+    const unsigned long thumbW = opts.thumbDims.width;
+    const unsigned long thumbH = opts.thumbDims.height;
+    if (img.columns() <= thumbW && img.rows() <= thumbH) {
+        // Image already fits thumbnail
+        thumb->img.width = img.columns();
+        thumb->img.height = img.rows();
+    } else {
+        // Maintain aspect ratio
+        const double scale = img.columns() >= img.rows()
+            ? (double)img.columns() / (double)thumbW
+            : (double)img.rows() / (double)thumbH;
+        thumb->img.width = (unsigned long)((double)img.columns() / scale);
+        thumb->img.height = (unsigned long)((double)img.rows() / scale);
 
-    img.thumbnail(Magick::Geometry(thumb->img.width, thumb->img.height));
+        img.thumbnail(Magick::Geometry(thumb->img.width, thumb->img.height));
+    }
+
     write_thumb(img, thumb, opts);
 }
 

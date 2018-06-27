@@ -9,6 +9,7 @@ package thumbnailer
 import "C"
 import (
 	"errors"
+	"strings"
 	"unsafe"
 )
 
@@ -62,11 +63,14 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 	}()
 	if errC != nil {
 		var err error
-		switch s := C.GoString(errC); s {
-		case "too wide":
+		s := C.GoString(errC)
+		switch {
+		case s == "too wide":
 			err = ErrTooWide
-		case "too tall":
+		case s == "too tall":
 			err = ErrTooTall
+		case strings.HasPrefix(s, "Magick: Corrupt image"):
+			err = ErrCorruptImage(s)
 		default:
 			err = errors.New(s)
 		}

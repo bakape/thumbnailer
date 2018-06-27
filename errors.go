@@ -29,3 +29,10 @@ type ErrInvalidImage string
 func (e ErrInvalidImage) Error() string {
 	return fmt.Sprintf("invalid image: %s", string(e))
 }
+
+// Source image is corrupt and could not be decoded
+type ErrCorruptImage string
+
+func (e ErrCorruptImage) Error() string {
+	return string(e)
+}

@@ -75,10 +75,6 @@ static void _thumbnail(
     src->width = img.columns();
     src->height = img.rows();
 
-    // Read only the first frame/page of GIFs and PDFs
-    img.subImage(0);
-    img.subRange(1);
-
     // Validate dimensions
     if (img.magick() != "PDF") {
         const unsigned long maxW = opts.maxSrcDims.width;
@@ -125,7 +121,7 @@ static void _thumbnail(
     write_thumb(img, thumb, opts);
 }
 
-// Catches amd converts exception, if any, to C string and returns it.
+// Catches and converts exception, if any, to C string and returns it.
 // Otherwise returns NULL.
 static char* pass_exception(std::function<void()> fn)
 {

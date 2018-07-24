@@ -2,8 +2,7 @@
 
 package thumbnailer
 
-// #cgo CXXFLAGS: -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
-// #cgo CFLAGS: -I${SRCDIR}/libimagequant
+// #cgo CFLAGS: -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
 // #cgo LDFLAGS: -lm
 // #include "blur.c"
 // #include "kmeans.c"
@@ -12,4 +11,5 @@ package thumbnailer
 // #include "mempool.c"
 // #include "nearest.c"
 // #include "pam.c"
+// #include "lodepng.cpp"
 import "C"

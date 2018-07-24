@@ -1,5 +1,6 @@
 #pragma once
 #include "util.h"
+#include <magick/api.h>
 #include <stdbool.h>
 
 struct Thumbnail {

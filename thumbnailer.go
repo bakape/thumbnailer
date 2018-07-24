@@ -1,8 +1,7 @@
 package thumbnailer
 
-// #cgo pkg-config: GraphicsMagick++
-// #cgo CFLAGS: -std=c11 -O3 -D_POSIX_C_SOURCE
-// #cgo CXXFLAGS: -std=c++17 -O3
+// #cgo pkg-config: GraphicsMagick
+// #cgo CFLAGS: -std=c11 -D_POSIX_C_SOURCE -O0 -g3
 // #include "init.h"
 // #include "thumbnailer.h"
 // #include <stdlib.h>
@@ -57,13 +56,11 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 		if thumb.img.data != nil {
 			C.free(unsafe.Pointer(thumb.img.data))
 		}
-		if errC != nil {
-			C.free(unsafe.Pointer(errC))
-		}
 	}()
 	if errC != nil {
 		var err error
 		s := C.GoString(errC)
+		C.free(unsafe.Pointer(errC))
 		switch {
 		case s == "too wide":
 			err = ErrTooWide
@@ -75,6 +72,8 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 			err = errors.New(s)
 		}
 		return src, Thumbnail{}, err
+	} else if thumb.img.data == nil {
+		return src, Thumbnail{}, ErrThumbnailingUnknown
 	}
 
 	src.Width = uint(srcC.width)

@@ -17,12 +17,12 @@ specify `--tags=MIT` when building the project. See LICENSE for more details.
 
 ## Dependencies
 * Go >= 1.10
-* C11 and C++17 compilers
+* C11 compiler
 * make
 * pkg-config
 * pthread
 * ffmpeg >= 3.1 libraries (libavcodec, libavutil, libavformat, libswscale)
-* GraphicsMagick++
+* GraphicsMagick
 
 NB: ffmpeg and GM should be compiled with all the dependency libraries for
 formats you want to process. On most Linux distributions you should be fine with

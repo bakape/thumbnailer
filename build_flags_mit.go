@@ -2,5 +2,5 @@
 
 package thumbnailer
 
-// #cgo CXXFLAGS: -D MIT_LICENSE
+// #cgo CFLAGS: -D MIT_LICENSE
 import "C"

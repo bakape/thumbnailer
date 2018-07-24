@@ -2,3 +2,4 @@
 testdata/*thumb.*
 .directory
 debug.test
+thumbnailer.test

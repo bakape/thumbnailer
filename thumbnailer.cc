@@ -121,30 +121,11 @@ static void _thumbnail(
     write_thumb(img, thumb, opts);
 }
 
-// Catches and converts exception, if any, to C string and returns it.
-// Otherwise returns NULL.
-static char* pass_exception(std::function<void()> fn)
-{
-    try {
-        fn();
-        return NULL;
-    } catch (...) {
-        auto e = std::current_exception();
-        try {
-            if (e) {
-                std::rethrow_exception(e);
-            }
-            return NULL;
-        } catch (const std::exception& e) {
-            char* buf = (char*)malloc(strlen(e.what()) + 1);
-            strcpy(buf, e.what());
-            return buf;
-        }
-    }
-}
-
 extern "C" char* thumbnail(
     struct Buffer* src, struct Thumbnail* thumb, const struct Options opts)
 {
-    return pass_exception([=]() { _thumbnail(src, thumb, opts); });
+    return pass_exception([=]() -> char* {
+        _thumbnail(src, thumb, opts);
+        return NULL;
+    });
 }

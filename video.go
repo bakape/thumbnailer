@@ -19,7 +19,8 @@ var (
 	ErrGetFrame = errors.New("failed to get frame")
 )
 
-// Thumbnail extracts the first frame of the video
+// Thumbnail extracts the most representative out of the 100 first frames of a
+// video
 func (c *FFContext) Thumbnail() (thumb Image, err error) {
 	ci, err := c.codecContext(FFVideo)
 	if err != nil {
@@ -29,8 +30,9 @@ func (c *FFContext) Thumbnail() (thumb Image, err error) {
 	var img C.struct_Buffer
 	ret := C.extract_video_image(&img, c.avFormatCtx, ci.ctx, ci.stream)
 	switch {
-	case ret != 0:
-		err = ffError(ret)
+	case ret != nil:
+		err = errors.New(C.GoString(ret))
+		C.free(unsafe.Pointer(ret))
 	case img.data == nil:
 		err = ErrGetFrame
 	default:

@@ -55,7 +55,9 @@ static char* image_to_raw(Image* img, uint8_t** buf, size_t* size)
     GetExceptionInfo(&ex);
 
     strcpy(info->magick, "RGBA");
+    strcpy(img->magick, "RGBA");
     info->depth = 8;
+    img->depth = 8;
     *buf = ImageToBlob(info, img, size, &ex);
 
     DestroyImageInfo(info);

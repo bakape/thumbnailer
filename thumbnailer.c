@@ -69,6 +69,7 @@ static char* writeThumb(Image* img, struct Thumbnail* thumb,
         info->quality = get_quality(75, opts.JPEGCompression);
     }
     strcpy(info->magick, format);
+    strcpy(img->magick, format);
     thumb->img.data = ImageToBlob(info, img, &thumb->img.size, ex);
 
 end:

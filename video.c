@@ -53,6 +53,11 @@ static int select_best_frame(AVFrame* frames[])
         }
     }
 
+    // Error on first frame or no frames at all
+    if (frame_i == -1) {
+        return -1;
+    }
+
     // Average histograms of up to 100 frames
     double average[HIST_SIZE] = { 0 };
     for (int j = 0; j <= frame_i; j++) {
@@ -159,21 +164,32 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
     }
 
 end:
-    if (pkt.data) {
+    if (pkt.buf) {
         av_packet_unref(&pkt);
     }
     switch (err) {
     case AVERROR_EOF:
         err = 0;
     case 0:
-        err = encode_frame(img, frames[select_best_frame(frames)]);
+        if (frame_i < 1) {
+            err = -1;
+        } else {
+            const int best = select_best_frame(frames);
+            if (best == -1) {
+                err = -1;
+            } else {
+                err = encode_frame(img, frames[best]);
+            }
+        }
         break;
     }
     for (int i = 0; i < MAX_FRAMES; i++) {
         if (!frames[i]) {
             break;
         }
-        av_frame_free(&frames[i]);
+        if (frames[i]->data) {
+            av_frame_free(&frames[i]);
+        }
     }
     return err;
 }

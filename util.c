@@ -17,7 +17,7 @@ char* copy_string(const char* s)
 
 char* format_magick_exception(const ExceptionInfo* ex)
 {
-    if (!ex->reason && !ex->description) {
+    if (ex->severity < 400 || (!ex->reason && !ex->description)) {
         return NULL;
     }
     char* b = malloc(1024);

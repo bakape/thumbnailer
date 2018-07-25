@@ -1,4 +1,5 @@
 #include "video.h"
+#include <float.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 
@@ -13,7 +14,7 @@
  */
 
 #define HIST_SIZE (3 * 256)
-#define MAX_FRAMES 100
+#define MAX_FRAMES 10
 
 // Compute sum-square deviation to estimate "closeness"
 static double compute_error(
@@ -28,20 +29,14 @@ static double compute_error(
 }
 
 // Select best frame based on RGB histograms
-static int select_best_frame(AVFrame* frames[])
+static AVFrame* select_best_frame(AVFrame* frames[], int size)
 {
-    int best_i = 0;
     // RGB color distribution histograms of the frames
     int hists[MAX_FRAMES][HIST_SIZE] = { 0 };
 
     // Compute each frame's histogram
-    int frame_i;
-    for (frame_i = 0; frame_i < MAX_FRAMES; frame_i++) {
+    for (int frame_i = 0; frame_i < size; frame_i++) {
         const AVFrame* f = frames[frame_i];
-        if (!f || !f->data) {
-            frame_i--;
-            break;
-        }
         uint8_t* p = f->data[0];
         for (int j = 0; j < f->height; j++) {
             for (int i = 0; i < f->width; i++) {
@@ -53,31 +48,26 @@ static int select_best_frame(AVFrame* frames[])
         }
     }
 
-    // Error on first frame or no frames at all
-    if (frame_i == -1) {
-        return -1;
-    }
-
-    // Average histograms of up to 100 frames
+    // Average all histograms
     double average[HIST_SIZE] = { 0 };
-    for (int j = 0; j <= frame_i; j++) {
-        for (int i = 0; i <= frame_i; i++) {
+    for (int j = 0; j < size; j++) {
+        for (int i = 0; i < size; i++) {
             average[j] = (double)hists[i][j];
         }
-        average[j] /= frame_i + 1;
+        average[j] /= size;
     }
 
     // Find the frame closer to the average using the sum of squared errors
-    double min_sq_err = -1;
-    for (int i = 0; i <= frame_i; i++) {
+    double min_sq_err = DBL_MAX;
+    int best_i = 0;
+    for (int i = 0; i < size; i++) {
         const double sq_err = compute_error(hists[i], average);
-        if (i == 0 || sq_err < min_sq_err) {
+        if (sq_err < min_sq_err) {
             best_i = i;
             min_sq_err = sq_err;
         }
     }
-
-    return best_i;
+    return frames[best_i];
 }
 
 // Encode frame to RGBA image
@@ -112,11 +102,13 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
     AVCodecContext* avcc, const int stream)
 {
     int err = 0;
-    int frame_i = 0;
+    int size = 0;
+    int i = 0;
     AVPacket pkt;
-    AVFrame* frames[MAX_FRAMES] = { 0 };
+    AVFrame* frames[MAX_FRAMES] = { NULL };
+    AVFrame* next = NULL;
 
-    // Read up to 100 frames
+    // Read up to 10 frames in 10 frame intervals
     while (1) {
         err = av_read_frame(avfc, &pkt);
         switch (err) {
@@ -126,7 +118,7 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
             // I don't know why, but this happens for some AVI and OGG files
             // mid-read. If some frames were actually read, just silence the
             // error and select from those.
-            if (frame_i && frames[0]->data) {
+            if (size) {
                 err = 0;
             }
             goto end;
@@ -140,18 +132,26 @@ int extract_video_image(struct Buffer* img, AVFormatContext* avfc,
                 goto end;
             }
 
-            if (!frames[frame_i]) {
-                frames[frame_i] = av_frame_alloc();
-                if (!frames[frame_i]) {
+            if (!next) {
+                next = av_frame_alloc();
+                if (!next) {
                     err = AVERROR(ENOMEM);
                     goto end;
                 }
             }
-            err = avcodec_receive_frame(avcc, frames[frame_i]);
+            err = avcodec_receive_frame(avcc, next);
             switch (err) {
             case 0:
-                if (++frame_i == MAX_FRAMES) {
-                    goto end;
+                // Read only every 10th frame
+                if (!(i++ % 10)) {
+                    frames[size++] = next;
+                    next = NULL;
+                    if (size == MAX_FRAMES) {
+                        goto end;
+                    }
+                } else {
+                    av_frame_free(&next);
+                    next = NULL;
                 }
                 break;
             case AVERROR(EAGAIN):
@@ -171,25 +171,18 @@ end:
     case AVERROR_EOF:
         err = 0;
     case 0:
-        if (frame_i < 1) {
+        if (!size) {
             err = -1;
         } else {
-            const int best = select_best_frame(frames);
-            if (best == -1) {
-                err = -1;
-            } else {
-                err = encode_frame(img, frames[best]);
-            }
+            err = encode_frame(img, select_best_frame(frames, size));
         }
         break;
     }
-    for (int i = 0; i < MAX_FRAMES; i++) {
-        if (!frames[i]) {
-            break;
-        }
-        if (frames[i]->data) {
-            av_frame_free(&frames[i]);
-        }
+    for (int i = 0; i < size; i++) {
+        av_frame_free(&frames[i]);
+    }
+    if (next) {
+        av_frame_free(&next);
     }
     return err;
 }

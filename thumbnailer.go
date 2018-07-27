@@ -66,7 +66,7 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 			err = ErrTooWide
 		case s == "too tall":
 			err = ErrTooTall
-		case strings.HasPrefix(s, "Magick: Corrupt image"):
+		case strings.Index(s, "Corrupt image") != -1:
 			err = ErrCorruptImage(s)
 		default:
 			err = errors.New(s)

@@ -4,7 +4,6 @@
 package thumbnailer
 
 import (
-	"bytes"
 	"io"
 	"time"
 )
@@ -83,12 +82,10 @@ func Process(rs io.ReadSeeker, opts Options) (
 	if err != nil {
 		return
 	}
-	buf := bytes.NewBuffer(GetBuffer())
-	_, err = buf.ReadFrom(rs)
+	src.Data, err = ReadFrom(rs)
 	if err != nil {
 		return
 	}
-	src.Data = buf.Bytes()
 	return processFile(src, opts)
 }
 

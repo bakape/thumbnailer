@@ -1,7 +1,8 @@
 package thumbnailer
 
+// #include <string.h>
+import "C"
 import (
-	"C"
 	"io"
 	"sync"
 	"unsafe"
@@ -87,8 +88,6 @@ func ReturnBuffer(buf []byte) {
 func copyCBuffer(data unsafe.Pointer, size C.int) []byte {
 	buf := GetBufferCap(int(size))
 	buf = buf[0:int(size)]
-	for i := 0; i < int(size); i++ {
-		buf[i] = *(*byte)(unsafe.Pointer(uintptr(data) + uintptr(i)))
-	}
+	C.memcpy(unsafe.Pointer(&buf[0]), data, C.size_t(size))
 	return buf
 }

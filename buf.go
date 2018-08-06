@@ -53,7 +53,12 @@ func GetBufferCap(capacity int) []byte {
 // Return the buffer to the pool using ReturnBuffer() when it is no longer being
 // used.
 func ReadFrom(r io.Reader) ([]byte, error) {
-	buf := GetBuffer()
+	return ReadInto(GetBuffer(), r)
+}
+
+// Like ReadFrom() but the suplied buffer is used for reading. The supplied
+// buffer should not be used after this call.
+func ReadInto(buf []byte, r io.Reader) ([]byte, error) {
 	for {
 		// Make for more room and return old buffer to the pool for reuse
 		if cap(buf)-len(buf) < 512 {

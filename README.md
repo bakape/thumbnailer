@@ -1,4 +1,5 @@
 [![GoDoc](https://godoc.org/github.com/bakape/thumbnailer?status.svg)](https://godoc.org/github.com/bakape/thumbnailer)
+[![Build Status](https://travis-ci.com/bakape/thumbnailer.svg?branch=master)](https://travis-ci.com/bakape/thumbnailer)
 # thumbnailer
 Package thumbnailer provides a more efficient image/video/audio/PDF thumbnailer
 than available with native Go processing libraries through GraphicsMagic and

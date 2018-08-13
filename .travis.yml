@@ -1,0 +1,10 @@
+services: docker
+script:
+  - docker build -t thumbnailer_test .
+  - docker run thumbnailer_test go test
+notifications:
+  email:
+    recipients:
+      - scorpid33@gmail.com
+    on_success: never
+    on_failure: always

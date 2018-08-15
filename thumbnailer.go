@@ -66,7 +66,8 @@ func processImage(src Source, opts Options) (Source, Thumbnail, error) {
 			err = ErrTooWide
 		case s == "too tall":
 			err = ErrTooTall
-		case strings.Index(s, "Corrupt image") != -1:
+		case strings.Index(s, "Corrupt image") != -1 ||
+			strings.Index(s, "Improper image header") != -1:
 			err = ErrCorruptImage(s)
 		default:
 			err = errors.New(s)

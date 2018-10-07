@@ -86,6 +86,8 @@ func TestProcess(t *testing.T) {
 }
 
 func openSample(t *testing.T, name string) *os.File {
+	t.Helper()
+
 	f, err := os.Open(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +96,7 @@ func openSample(t *testing.T, name string) *os.File {
 }
 
 func writeSample(t *testing.T, name string, buf []byte) {
+	t.Helper()
 	path := filepath.Join("testdata", name)
 
 	// Remove previous file, if any

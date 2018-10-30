@@ -60,10 +60,13 @@ int codec_context(AVCodecContext** avcc, int* stream, AVFormatContext* avfc,
     st = avfc->streams[*stream];
 
     // ffvp8/9 doesn't support alpha channel so force libvpx.
-    if (st->codecpar->codec_id == AV_CODEC_ID_VP8) {
+    switch (st->codecpar->codec_id) {
+    case AV_CODEC_ID_VP8:
         codec = avcodec_find_decoder_by_name("libvpx");
-    } else if (st->codecpar->codec_id == AV_CODEC_ID_VP9) {
+        break;
+    case AV_CODEC_ID_VP9:
         codec = avcodec_find_decoder_by_name("libvpx-vp9");
+        break;
     }
     if (!codec) {
         codec = avcodec_find_decoder(st->codecpar->codec_id);

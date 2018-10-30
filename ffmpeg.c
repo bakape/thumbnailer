@@ -1,17 +1,18 @@
 #include "ffmpeg.h"
 
-const int bufSize = 1 << 12;
+static const int bufSize = 1 << 12;
 
-pthread_mutex_t codecMu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t codecMu = PTHREAD_MUTEX_INITIALIZER;
 
-void init(void) {
+void init(void)
+{
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
-	av_register_all();
+    av_register_all();
 #endif
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 10, 100)
-	avcodec_register_all();
+    avcodec_register_all();
 #endif
-	av_log_set_level(16);
+    av_log_set_level(16);
 }
 
 // Initialize am AVFormatContext with the buffered file
@@ -30,24 +31,10 @@ int create_context(AVFormatContext** ctx)
     }
 
     // Calls avcodec_open2 internally, so needs locking
-    err = pthread_mutex_lock(&codecMu);
-    if (err < 0) {
-        return err;
-    }
+    pthread_mutex_lock(&codecMu);
     err = avformat_find_stream_info(*ctx, NULL);
-    if (err < 0) {
-        int muErr = pthread_mutex_unlock(&codecMu);
-        if (muErr < 0) {
-            return muErr;
-        }
-        return err;
-    }
-    err = pthread_mutex_unlock(&codecMu);
-    if (err < 0) {
-        return err;
-    }
-
-    return 0;
+    pthread_mutex_unlock(&codecMu);
+    return err;
 }
 
 void destroy(AVFormatContext* ctx)
@@ -95,25 +82,14 @@ int codec_context(AVCodecContext** avcc, int* stream, AVFormatContext* avfc,
     }
 
     // Not thread safe. Needs lock.
-    err = pthread_mutex_lock(&codecMu);
-    if (err < 0) {
-        return err;
-    }
+    pthread_mutex_lock(&codecMu);
     err = avcodec_open2(*avcc, codec, NULL);
     if (err < 0) {
         avcodec_free_context(avcc);
-        int muErr = pthread_mutex_unlock(&codecMu);
-        if (muErr < 0) {
-            return muErr;
-        }
-        return err;
+        *avcc = NULL;
     }
-    err = pthread_mutex_unlock(&codecMu);
-    if (err < 0) {
-        return err;
-    }
-
-    return 0;
+    pthread_mutex_unlock(&codecMu);
+    return err;
 }
 
 // Format ffmpeg error code to string message

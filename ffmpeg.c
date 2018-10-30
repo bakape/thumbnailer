@@ -77,21 +77,23 @@ int codec_context(AVCodecContext** avcc, int* stream, AVFormatContext* avfc,
 
     *avcc = avcodec_alloc_context3(codec);
     if (!*avcc) {
-        return -1;
+        goto end;
     }
     err = avcodec_parameters_to_context(*avcc, st->codecpar);
     if (err < 0) {
-        return err;
+        goto end;
     }
 
     // Not thread safe. Needs lock.
     pthread_mutex_lock(&codecMu);
     err = avcodec_open2(*avcc, codec, NULL);
-    if (err < 0) {
+    pthread_mutex_unlock(&codecMu);
+
+end:
+    if (err < 0 && *avcc) {
         avcodec_free_context(avcc);
         *avcc = NULL;
     }
-    pthread_mutex_unlock(&codecMu);
     return err;
 }
 

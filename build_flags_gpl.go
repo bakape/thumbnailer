@@ -2,7 +2,7 @@
 
 package thumbnailer
 
-// #cgo CFLAGS: -I${SRCDIR}/libimagequant -I${SRCDIR}/lodepng
+// #cgo CFLAGS: -I./libimagequant -I./lodepng
 // #cgo LDFLAGS: -lm
 // #include "blur.c"
 // #include "kmeans.c"

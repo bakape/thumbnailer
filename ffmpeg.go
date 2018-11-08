@@ -179,7 +179,7 @@ func (c *FFContext) CodecName(typ FFMediaType) (string, error) {
 	return "", err
 }
 
-// HasStream returns, if the file hash a decodeable stream of the passed type
+// HasStream returns, if the file has a decodeable stream of the passed type
 func (c *FFContext) HasStream(typ FFMediaType) (bool, error) {
 	_, err := c.codecContext(typ)
 	switch err {

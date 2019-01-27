@@ -1,7 +1,5 @@
-FROM bakape/meguca
-ENV GOPATH=/go
-ENV PATH="${PATH}:/usr/local/go/bin:${GOPATH}/bin"
-RUN mkdir -p /go/src/github.com/bakape/thumbnailer
-WORKDIR /go/src/github.com/bakape/thumbnailer
+FROM debian:testing
 COPY . .
-RUN go get -v -t ./...
+RUN apt-get update
+RUN apt-get dist-upgrade -y
+RUN apt-get install -y build-essential pkg-config libpth-dev libavcodec-dev libavutil-dev libavformat-dev libswscale-dev golang

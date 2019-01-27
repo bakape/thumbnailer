@@ -200,12 +200,12 @@ func (c *FFContext) Length() time.Duration {
 // Dims returns dimensions of the best video (or image) stream in the media
 func (c *FFContext) Dims() (dims Dims, err error) {
 	ci, err := c.codecContext(FFVideo)
-	if err == nil {
+	if err != nil {
 		return
 	}
 	dims = Dims{
 		Width:  uint(ci.ctx.width),
-		Height: uint(ci.ctx.width),
+		Height: uint(ci.ctx.height),
 	}
 	return
 }

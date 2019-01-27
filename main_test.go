@@ -52,7 +52,7 @@ func TestProcess(t *testing.T) {
 	for i := range samples {
 		sample := samples[i]
 		t.Run(sample, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 
 			f := openSample(t, sample)
 			defer f.Close()

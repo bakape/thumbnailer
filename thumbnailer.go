@@ -61,6 +61,10 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 ) (
 	thumb image.Image, err error,
 ) {
+	_, err = rs.Seek(0, 0)
+	if err != nil {
+		return
+	}
 	c, err := NewFFContext(rs)
 	if err != nil {
 		return

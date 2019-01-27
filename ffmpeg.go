@@ -34,10 +34,6 @@ var (
 	ErrStreamNotFound = errors.New("no stream of this type found")
 )
 
-func init() {
-	C.init()
-}
-
 // C can not retain any pointers to Go memory after the cgo call returns. We
 // still need a way to bind AVFormatContext instances to Go I/O functions. To do
 // that we convert the AVFormatContext pointer to a uintptr and use it as a key
@@ -196,9 +192,22 @@ func (c *FFContext) HasStream(typ FFMediaType) (bool, error) {
 	}
 }
 
-// Duration returns the duration of the input
-func (c *FFContext) Duration() time.Duration {
+// Length returns the duration of the input
+func (c *FFContext) Length() time.Duration {
 	return time.Duration(c.avFormatCtx.duration * 1000)
+}
+
+// Dims returns dimensions of the best video (or image) stream in the media
+func (c *FFContext) Dims() (dims Dims, err error) {
+	ci, err := c.codecContext(FFVideo)
+	if err == nil {
+		return
+	}
+	dims = Dims{
+		Width:  uint(ci.ctx.width),
+		Height: uint(ci.ctx.width),
+	}
+	return
 }
 
 //export readCallBack

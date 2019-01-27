@@ -8,15 +8,6 @@ import (
 	"unsafe"
 )
 
-// ErrorCovert wraps an error that happened during cover art thumbnailing
-type ErrCoverArt struct {
-	Err error
-}
-
-func (e ErrCoverArt) Error() string {
-	return "cover art: " + e.Err.Error()
-}
-
 // HasCoverArt return whether file has cover art in it
 func (c *FFContext) HasCoverArt() bool {
 	return C.find_cover_art(c.avFormatCtx) != -1

@@ -205,7 +205,7 @@ func RegisterProcessor(mime string, fn Processor) {
 
 // DetectMIME  detects the MIME typ of the r. r must be at starting position.
 // accepted, if not nil, specifies MIME types to not reject with
-// UnsupportedMIMEError.
+// ErrUnsupportedMIME.
 func DetectMIME(rs io.ReadSeeker, accepted map[string]bool,
 ) (
 	mime, ext string, err error,
@@ -238,10 +238,10 @@ func DetectMIME(rs io.ReadSeeker, accepted map[string]bool,
 
 	switch {
 	case mime == "":
-		err = UnsupportedMIMEError("application/octet-stream")
+		err = ErrUnsupportedMIME("application/octet-stream")
 	// Check if MIME is accepted, if specified
 	case accepted != nil && !accepted[mime]:
-		err = UnsupportedMIMEError(mime)
+		err = ErrUnsupportedMIME(mime)
 	}
 	return
 }

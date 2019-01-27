@@ -84,6 +84,7 @@ static int encode_frame(
     img->width = (unsigned long)((double)frame->width / scale);
     img->height = (unsigned long)((double)frame->height / scale);
 
+    // TODO: Use scaling that works better with alpha
     struct SwsContext* ctx = sws_getContext(frame->width, frame->height,
         frame->format, img->width, img->height, AV_PIX_FMT_RGBA,
         SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);

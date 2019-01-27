@@ -17,16 +17,22 @@ type Source struct {
 	// Length of the stream. Applies to audio and video files.
 	Length time.Duration
 
+	// Source dimensions, if file is image or video
+	Dims
+
 	// Mime type of the source file
 	Mime string
-
-	// optional metadata
-	Title, Artist string
 
 	// Canonical file extension
 	Extension string
 
-	Dims
+	// optional metadata
+	Meta
+}
+
+// File metadata
+type Meta struct {
+	Title, Artist string
 }
 
 // Dims store the dimensions of an image
@@ -86,7 +92,7 @@ func Process(rs io.ReadSeeker, opts Options) (
 		"audio/midi":
 		thumb, err = processMedia(rs, &src, opts)
 	default:
-		err = UnsupportedMIMEError(src.Mime)
+		err = ErrUnsupportedMIME(src.Mime)
 	}
 	return
 }

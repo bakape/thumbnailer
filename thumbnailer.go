@@ -71,8 +71,10 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 	}
 	defer c.Close()
 
-	src.Length = c.Duration()
+	// TODO: EXIF orientation
 
+	src.Length = c.Length()
+	src.Meta = c.Meta()
 	src.HasAudio, err = c.HasStream(FFAudio)
 	if err != nil {
 		return
@@ -81,88 +83,31 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 	if err != nil {
 		return
 	}
-	c.ExtractMeta(src)
 	if c.HasCoverArt() {
 		thumb, err = processCoverArt(c.CoverArt(), opts)
 	} else {
 		if src.HasVideo {
-			// TODO: Detect width and height
-			// TODO: Dimension verification
 			thumb, err = c.Thumbnail(opts.ThumbDims)
+			if err != nil {
+				return
+			}
+
+			src.Dims, err = c.Dims()
+			if err != nil {
+				return
+			}
+
+			max := opts.MaxSourceDims
+			if max.Width != 0 && src.Width > max.Width {
+				err = ErrTooWide
+				return
+			}
+			if max.Height != 0 && src.Height > max.Height {
+				err = ErrTooTall
+			}
 		} else {
 			err = ErrCantThumbnail
 		}
 	}
 	return
 }
-
-// // processImage generates a thumbnail from a source image buffer. If width and
-// // height are non-zero, buf is assumed to be a raw RGBA image.
-// func processImage(src Source, opts Options) (Source, Thumbnail, error) {
-// 	srcC := C.struct_Buffer{
-// 		data:   (*C.uint8_t)(C.CBytes(src.Data)),
-// 		size:   C.size_t(len(src.Data)),
-// 		width:  C.ulong(src.Width),
-// 		height: C.ulong(src.Height),
-// 	}
-
-// 	optsC := C.struct_Options{
-// 		JPEGCompression: C.uint8_t(opts.JPEGQuality),
-// 		PNGCompression: C.struct_CompressionRange{
-// 			min: C.uint8_t(opts.PNGQuality.Min),
-// 			max: C.uint8_t(opts.PNGQuality.Max),
-// 		},
-// 		maxSrcDims: C.struct_Dims{
-// 			width:  C.ulong(opts.MaxSourceDims.Width),
-// 			height: C.ulong(opts.MaxSourceDims.Height),
-// 		},
-// 		thumbDims: C.struct_Dims{
-// 			width:  C.ulong(opts.ThumbDims.Width),
-// 			height: C.ulong(opts.ThumbDims.Height),
-// 		},
-// 	}
-
-// 	var thumb C.struct_Thumbnail
-// 	errC := C.thumbnail(&srcC, &thumb, optsC)
-// 	defer func() {
-// 		if thumb.img.data != nil {
-// 			C.free(unsafe.Pointer(thumb.img.data))
-// 		}
-// 	}()
-// 	if errC != nil {
-// 		var err error
-// 		s := C.GoString(errC)
-// 		C.free(unsafe.Pointer(errC))
-// 		switch {
-// 		case s == "too wide":
-// 			err = ErrTooWide
-// 		case s == "too tall":
-// 			err = ErrTooTall
-// 		case strings.Index(s, "Corrupt image") != -1 ||
-// 			strings.Index(s, "Improper image header") != -1:
-// 			err = ErrCorruptImage(s)
-// 		default:
-// 			err = errors.New(s)
-// 		}
-// 		return src, Thumbnail{}, err
-// 	} else if thumb.img.data == nil {
-// 		return src, Thumbnail{}, ErrThumbnailingUnknown
-// 	}
-
-// 	src.Width = uint(srcC.width)
-// 	src.Height = uint(srcC.height)
-// 	thumbnail := Thumbnail{
-// 		IsPNG: bool(thumb.isPNG),
-// 		Image: Image{
-// 			Data: copyCBuffer(
-// 				unsafe.Pointer(thumb.img.data),
-// 				C.int(thumb.img.size),
-// 			),
-// 			Dims: Dims{
-// 				Width:  uint(thumb.img.width),
-// 				Height: uint(thumb.img.height),
-// 			},
-// 		},
-// 	}
-// 	return src, thumbnail, nil
-// }

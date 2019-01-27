@@ -1,6 +1,6 @@
 package thumbnailer
 
-// #cgo pkg-config: libavcodec libavutil libavformat
+// #cgo pkg-config: libavcodec libavutil libavformat libswscale
 // #cgo CFLAGS: -std=c11
 // #include "ffmpeg.h"
 import "C"
@@ -84,9 +84,10 @@ type ffError C.int
 
 // Error formats the FFmpeg error in human-readable format
 func (f ffError) Error() string {
-	str := C.format_error(C.int(f))
-	defer C.free(unsafe.Pointer(str))
-	return fmt.Sprintf("ffmpeg: %s", C.GoString(str))
+	buf := C.malloc(1024)
+	defer C.free(buf)
+	C.av_strerror(C.int(f), (*C.char)(buf), 1024)
+	return fmt.Sprintf("ffmpeg: %s", C.GoString((*C.char)(buf)))
 }
 
 // Code returns the underlying FFmpeg error code
@@ -134,7 +135,10 @@ func (c *FFContext) Close() {
 		C.avcodec_free_context(&ci.ctx)
 	}
 	if c.avFormatCtx != nil {
-		C.destroy(c.avFormatCtx)
+		C.av_free(unsafe.Pointer(c.avFormatCtx.pb.buffer))
+		c.avFormatCtx.pb.buffer = nil
+		C.av_free(unsafe.Pointer(c.avFormatCtx.pb))
+		C.av_free(unsafe.Pointer(c.avFormatCtx))
 	}
 	handlersMap.Delete(c.handlerKey)
 }

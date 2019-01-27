@@ -1,22 +1,16 @@
 #pragma once
-#include "util.h"
-#include <magick/api.h>
-#include <stdbool.h>
+#include "ffmpeg.h"
 
-struct Thumbnail {
-    bool isPNG;
-    struct Buffer img;
+struct Buffer {
+    uint8_t* data;
+    size_t size;
+    unsigned long width, height;
 };
 
-struct CompressionRange {
-    uint8_t min, max;
+struct Dims {
+    unsigned long width, height;
 };
 
-struct Options {
-    uint8_t JPEGCompression;
-    struct CompressionRange PNGCompression;
-    struct Dims maxSrcDims, thumbDims;
-};
-
-char* thumbnail(
-    struct Buffer* src, struct Thumbnail* thumb, const struct Options opts);
+// Writes RGBA thumbnail buffer to img
+int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
+    AVCodecContext* avcc, const int stream, const struct Dims thumb_dims);

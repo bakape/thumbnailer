@@ -1,178 +1,195 @@
 #include "thumbnailer.h"
-#include <magick/pixel_cache.h>
-#include <string.h>
+#include <float.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
 
-#ifndef MIT_LICENSE
-#include "compress_png.h"
-#endif // MIT_LICENSE
+/**
+ * Potential thumbnail lookup filter to reduce the risk of an inappropriate
+ * selection (such as a black frame) we could get with an absolute seek.
+ *
+ * Simplified version of algorithm by Vadim Zaliva <lord@crocodile.org>.
+ * http://notbrainsurgery.livejournal.com/29773.html
+ *
+ * Adapted by Janis Petersons <bakape@gmail.com>
+ */
 
-// Iterates over all pixels and checks, if any transparency present
-static char* hasTransparency(
-    const Image* img, bool* need_PNG, ExceptionInfo* ex)
+#define HIST_SIZE (3 * 256)
+#define MAX_FRAMES 10
+
+// Compute sum-square deviation to estimate "closeness"
+static double compute_error(
+    const int hist[HIST_SIZE], const double median[HIST_SIZE])
 {
-    // No alpha channel
-    if (!img->matte) {
-        return NULL;
+    double sum_sq_err = 0;
+    for (int i = 0; i < HIST_SIZE; i++) {
+        const double err = median[i] - (double)hist[i];
+        sum_sq_err += err * err;
     }
+    return sum_sq_err;
+}
 
-    // Transparent pixels are most likely to also be in the first row, so
-    // retrieve one row at a time. It is also more performant to retrieve entire
-    // rows instead of individual pixels.
-    for (unsigned long i = 0; i < img->rows; i++) {
-        const PixelPacket* packets
-            = AcquireImagePixels(img, 0, i, img->columns, 1, ex);
-        if (!packets) {
-            return format_magick_exception(ex);
-        }
-        for (unsigned long j = 0; j < img->columns; j++) {
-            if (packets[j].opacity > 0) {
-                *need_PNG = true;
-                return NULL;
+// Select best frame based on RGB histograms
+static AVFrame* select_best_frame(AVFrame* frames[], int size)
+{
+    // RGB color distribution histograms of the frames
+    int hists[MAX_FRAMES][HIST_SIZE] = { 0 };
+
+    // Compute each frame's histogram
+    for (int frame_i = 0; frame_i < size; frame_i++) {
+        const AVFrame* f = frames[frame_i];
+        uint8_t* p = f->data[0];
+        for (int j = 0; j < f->height; j++) {
+            for (int i = 0; i < f->width; i++) {
+                for (int k = 0; k < 3; k++) {
+                    hists[frame_i][k * 256 + p[i * 3 + k]]++;
+                }
             }
+            p += f->linesize[0];
         }
     }
 
-    return NULL;
+    // Average all histograms
+    double average[HIST_SIZE] = { 0 };
+    for (int j = 0; j < size; j++) {
+        for (int i = 0; i < size; i++) {
+            average[j] = (double)hists[i][j];
+        }
+        average[j] /= size;
+    }
+
+    // Find the frame closer to the average using the sum of squared errors
+    double min_sq_err = DBL_MAX;
+    int best_i = 0;
+    for (int i = 0; i < size; i++) {
+        const double sq_err = compute_error(hists[i], average);
+        if (sq_err < min_sq_err) {
+            best_i = i;
+            min_sq_err = sq_err;
+        }
+    }
+    return frames[best_i];
 }
 
-// Convert thumbnail to appropriate file type and write to buffer
-static char* writeThumb(Image* img, struct Thumbnail* thumb,
-    const struct Options opts, ExceptionInfo* ex)
+// Encode frame to RGBA image
+static int encode_frame(
+    struct Buffer* img, AVFrame* frame, const struct Dims thumb_dims)
 {
-    char* err = NULL;
-    char* format = NULL;
-    bool need_PNG = false;
-    ImageInfo* info = NULL;
-
-    if (strcmp(img->magick, "JPEG")) {
-        err = hasTransparency(img, &need_PNG, ex);
-        if (err) {
-            goto end;
-        }
-    }
-
-// Don't need ImageInfo, if we are using lossy PNG compression
-#ifndef MIT_LICENSE
-    if (!need_PNG)
-#endif
-        info = CloneImageInfo(NULL);
-    if (need_PNG) {
-        thumb->isPNG = true;
-#ifndef MIT_LICENSE
-        return compress_png(img, thumb, opts.PNGCompression);
-#else
-        format = "PNG";
-        info->quality = 105;
-#endif // MIT_LICENSE
-    } else {
-        format = "JPEG";
-        info->quality = get_quality(75, opts.JPEGCompression);
-    }
-    strcpy(info->magick, format);
-    strcpy(img->magick, format);
-    thumb->img.data = ImageToBlob(info, img, &thumb->img.size, ex);
-
-end:
-    DestroyImageInfo(info);
-    return err;
-}
-
-// Swap original image with new temporary image
-#define SWAP_TMP                                                               \
-    if (!tmp) {                                                                \
-        goto end;                                                              \
-    }                                                                          \
-    DestroyImage(img);                                                         \
-    img = tmp;
-
-char* thumbnail(
-    struct Buffer* src, struct Thumbnail* thumb, const struct Options opts)
-{
-    Image *img = NULL, *tmp = NULL;
-    char* err = NULL;
-    ImageInfo* info = CloneImageInfo(NULL);
-    ExceptionInfo ex;
-    GetExceptionInfo(&ex);
-
-    // Read only the first frame/page of GIFs and PDFs
-    info->subimage = 0;
-    info->subrange = 1;
-
-    // If width and height are already defined, then a frame from ffmpeg has
-    // been passed
-    if (src->width && src->height) {
-        strcpy(info->magick, "RGBA");
-        char* buf = malloc(128);
-        int over = snprintf(buf, 128, "%lux%lu", src->width, src->height);
-        if (over > 0) {
-            buf = realloc(buf, 128 + (size_t)over);
-            sprintf(buf, "%lux%lu", src->width, src->height);
-        }
-        info->size = buf;
-        info->depth = 8;
-    }
-
-    img = BlobToImage(info, src->data, src->size, &ex);
-    if (!img) {
-        goto end;
-    }
-    src->width = img->columns;
-    src->height = img->rows;
-
-    // Validate dimensions
-    if (strcmp(img->magick, "PDF")) {
-        const unsigned long maxW = opts.maxSrcDims.width;
-        const unsigned long maxH = opts.maxSrcDims.height;
-        if (maxW && img->columns > maxW) {
-            err = copy_string("too wide");
-            goto end;
-        }
-        if (maxH && img->rows > maxH) {
-            err = copy_string("too tall");
-            goto end;
-        }
-    }
-
-    // Rotate image based on EXIF metadata, if needed
-    if (img->orientation > TopLeftOrientation) {
-        tmp = AutoOrientImage(img, img->orientation, &ex);
-        SWAP_TMP;
-    }
-
-    // Strip EXIF metadata, if any. Fail silently.
-    DeleteImageProfile(img, "EXIF");
-
     // Maintain aspect ratio
     double scale;
-    if (img->columns >= img->rows) {
-        scale = (double)(img->columns) / (double)(opts.thumbDims.width);
+    if (frame->width >= frame->height) {
+        scale = (double)(frame->width) / (double)(thumb_dims.width);
     } else {
-        scale = (double)(img->rows) / (double)(opts.thumbDims.height);
+        scale = (double)(frame->height) / (double)(thumb_dims.height);
     }
-    thumb->img.width = (unsigned long)((double)img->columns / scale);
-    thumb->img.height = (unsigned long)((double)img->rows / scale);
+    img->width = (unsigned long)((double)frame->width / scale);
+    img->height = (unsigned long)((double)frame->height / scale);
 
-    // Subsample to 4 times the thumbnail size. A decent enough compromise
-    // between quality and performance for images around the thumbnail size
-    // and much bigger ones.
-    tmp = SampleImage(img, thumb->img.width * 4, thumb->img.height * 4, &ex);
-    SWAP_TMP;
+    struct SwsContext* ctx = sws_getContext(frame->width, frame->height,
+        frame->format, img->width, img->height, AV_PIX_FMT_RGBA,
+        SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);
+    if (!ctx) {
+        return AVERROR(ENOMEM);
+    }
 
-    // Scale to thumbnail size
-    tmp = ResizeImage(
-        img, thumb->img.width, thumb->img.height, BoxFilter, 1, &ex);
-    SWAP_TMP;
+    img->size = (size_t)av_image_get_buffer_size(
+        AV_PIX_FMT_RGBA, frame->width, frame->height, 1);
+    uint8_t* dst_data[1];
+    img->data = dst_data[0] = malloc(img->size); // RGB have one plane
+    int dst_linesize[1] = { 4 * img->width }; // RGBA stride
 
-    err = writeThumb(img, thumb, opts, &ex);
+    sws_scale(ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
+        frame->height, (uint8_t* const*)dst_data, dst_linesize);
+
+    sws_freeContext(ctx);
+    return 0;
+}
+
+int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
+    AVCodecContext* avcc, const int stream, const struct Dims thumb_dims)
+{
+    int err = 0;
+    int size = 0;
+    int i = 0;
+    AVPacket pkt;
+    AVFrame* frames[MAX_FRAMES] = { NULL };
+    AVFrame* next = NULL;
+
+    // Read up to 10 frames in 10 frame intervals
+    while (1) {
+        err = av_read_frame(avfc, &pkt);
+        switch (err) {
+        case 0:
+            break;
+        case -1:
+            // I don't know why, but this happens for some AVI and OGG files
+            // mid-read. If some frames were actually read, just silence the
+            // error and select from those.
+            if (size) {
+                err = 0;
+            }
+            goto end;
+        default:
+            goto end;
+        }
+
+        if (pkt.stream_index == stream) {
+            err = avcodec_send_packet(avcc, &pkt);
+            if (err < 0) {
+                goto end;
+            }
+
+            if (!next) {
+                next = av_frame_alloc();
+                if (!next) {
+                    err = AVERROR(ENOMEM);
+                    goto end;
+                }
+            }
+            err = avcodec_receive_frame(avcc, next);
+            switch (err) {
+            case 0:
+                // Read only every 10th frame
+                if (!(i++ % 10)) {
+                    frames[size++] = next;
+                    next = NULL;
+                    if (size == MAX_FRAMES) {
+                        goto end;
+                    }
+                } else {
+                    av_frame_free(&next);
+                    next = NULL;
+                }
+                break;
+            case AVERROR(EAGAIN):
+                break;
+            default:
+                goto end;
+            }
+        }
+        av_packet_unref(&pkt);
+    }
 
 end:
-    if (img) {
-        DestroyImage(img);
+    if (pkt.buf) {
+        av_packet_unref(&pkt);
     }
-    DestroyImageInfo(info);
-    if (!err) {
-        err = format_magick_exception(&ex);
+    switch (err) {
+    case AVERROR_EOF:
+        err = 0;
+    case 0:
+        if (!size) {
+            err = -1;
+        } else {
+            err = encode_frame(
+                img, select_best_frame(frames, size), thumb_dims);
+        }
+        break;
     }
-    DestroyExceptionInfo(&ex);
+    for (int i = 0; i < size; i++) {
+        av_frame_free(&frames[i]);
+    }
+    if (next) {
+        av_frame_free(&next);
+    }
     return err;
 }

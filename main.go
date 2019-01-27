@@ -4,22 +4,12 @@
 package thumbnailer
 
 import (
+	"image"
 	"io"
 	"time"
 )
 
-// Thumbnail stores a processed thumbnail.
-// Take note, that in case an audio file with no cover art is passed, this
-// struct will be unassigned.
-type Thumbnail struct {
-	// Thumbnails can be either JPEG or PNG. Only images with transparency will
-	// be PNG.
-	IsPNG bool
-
-	Image
-}
-
-// Source stores the source image, including information about the source file
+// Source stores information about the source file
 type Source struct {
 	// Some containers may or may not have either
 	HasAudio, HasVideo bool
@@ -36,7 +26,7 @@ type Source struct {
 	// Canonical file extension
 	Extension string
 
-	Image
+	Dims
 }
 
 // Dims store the dimensions of an image
@@ -46,15 +36,6 @@ type Dims struct {
 
 // Options suplied to the Thumbnail function
 type Options struct {
-	// JPEG thumbnail quality to use. [1,100]. Defaults to 75.
-	JPEGQuality uint8
-
-	PNGQuality struct {
-		// Minimum and maximum quality for lossy PNG compression with
-		// libimagequant. [1,100]. Defaults to 10-100.
-		Min, Max uint
-	}
-
 	// Maximum source image dimensions. Any image exceeding either will be
 	// rejected and return with ErrTooTall or ErrTooWide. If not set, all images
 	// are processed.
@@ -71,34 +52,41 @@ type Options struct {
 // Process generates a thumbnail from a file of unknown type and performs some
 // basic meta information extraction
 func Process(rs io.ReadSeeker, opts Options) (
-	src Source, thumb Thumbnail, err error,
+	src Source, thumb image.Image, err error,
 ) {
 	src.Mime, src.Extension, err = DetectMIME(rs, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}
 
-	_, err = rs.Seek(0, 0)
-	if err != nil {
-		return
-	}
-	src.Data, err = ReadFrom(rs)
-	if err != nil {
-		return
-	}
-	return processFile(src, opts)
-}
-
-// ProcessBuffer is like Process, but takes []byte as input. More efficient,
-// if you already have the file buffered into memory.
-func ProcessBuffer(buf []byte, opts Options) (
-	src Source, thumb Thumbnail, err error,
-) {
-	src.Mime, src.Extension, err = DetectMIMEBuffer(buf, opts.AcceptedMimeTypes)
-	if err != nil {
+	override := overrideProcessors[src.Mime]
+	if override != nil {
+		thumb, err = override(rs, &src, opts)
 		return
 	}
 
-	src.Data = buf
-	return processFile(src, opts)
+	switch src.Mime {
+	case
+		"image/jpeg",
+		"image/png",
+		"image/gif",
+		"image/webp",
+		"application/ogg",
+		"video/webm",
+		"video/x-matroska",
+		"video/mp4",
+		"video/avi",
+		"video/quicktime",
+		"video/x-ms-wmv",
+		"video/x-flv",
+		"audio/mpeg",
+		"audio/aac",
+		"audio/wave",
+		"audio/x-flac",
+		"audio/midi":
+		thumb, err = processMedia(rs, &src, opts)
+	default:
+		err = UnsupportedMIMEError(src.Mime)
+	}
+	return
 }

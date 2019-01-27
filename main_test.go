@@ -2,7 +2,8 @@ package thumbnailer
 
 import (
 	"fmt"
-	"io/ioutil"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,6 @@ var samples = []string{
 	"no_sound.mkv",
 	"no_sound.ogg",
 	"sample.gif",
-	"sample.psd",
 	"with_sound.avi",
 	"no_cover.flac",
 	"no_cover.ogg",
@@ -27,7 +27,6 @@ var samples = []string{
 	"no_sound.avi",
 	"no_sound.mp4",
 	"no_sound.wmv",
-	"sample.pdf",
 	"sample.webp",
 	"with_sound.mov",
 	"with_sound.webm",
@@ -49,36 +48,27 @@ func TestProcess(t *testing.T) {
 	t.Parallel()
 
 	opts := Options{
-		JPEGQuality: 90,
-		ThumbDims:   Dims{150, 150},
+		ThumbDims: Dims{150, 150},
 	}
 
 	for i := range samples {
 		sample := samples[i]
 		t.Run(sample, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 
 			f := openSample(t, sample)
 			defer f.Close()
 
 			src, thumb, err := Process(f, opts)
-			if err != nil && err != ErrNoCoverArt {
+			if err != nil && err != ErrCantThumbnail {
 				t.Fatal(err)
 			}
 
-			if err != ErrNoCoverArt {
-				var ext string
-				if thumb.IsPNG {
-					ext = "png"
-				} else {
-					ext = "jpg"
-				}
-				name := fmt.Sprintf(`%s_thumb.%s`, sample, ext)
-				writeSample(t, name, thumb.Data)
+			if err != ErrCantThumbnail {
+				name := fmt.Sprintf(`%s_thumb.png`, sample)
+				writeSample(t, name, thumb)
 			}
 
-			src.Data = nil
-			thumb.Data = nil
 			t.Logf("src:   %v\n", src)
 			t.Logf("thumb: %v\n", thumb)
 		})
@@ -95,24 +85,16 @@ func openSample(t *testing.T, name string) *os.File {
 	return f
 }
 
-func writeSample(t *testing.T, name string, buf []byte) {
+func writeSample(t *testing.T, name string, img image.Image) {
 	t.Helper()
-	path := filepath.Join("testdata", name)
 
-	// Remove previous file, if any
-	_, err := os.Stat(path)
-	switch {
-	case os.IsExist(err):
-		if err := os.Remove(path); err != nil {
-			t.Fatal(err)
-		}
-	case os.IsNotExist(err):
-	case err == nil:
-	default:
+	f, err := os.Create(filepath.Join("testdata", name))
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer f.Close()
 
-	err = ioutil.WriteFile(path, buf, 0600)
+	png.Encode(f, img)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +167,6 @@ func TestDimensionValidation(t *testing.T) {
 					Width:  c.maxW,
 					Height: c.maxH,
 				},
-				JPEGQuality: 90,
 			}
 
 			f := openSample(t, c.file)
@@ -214,11 +195,12 @@ func TestSourceAlreadyThumbSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if thumb.Width != 121 {
-		t.Errorf("unexpected width: 121 : %d", thumb.Width)
+	dims := thumb.Bounds().Max
+	if dims.X != 121 {
+		t.Errorf("unexpected width: 121 : %d", dims.X)
 	}
-	if thumb.Height != 150 {
-		t.Errorf("unexpected height: 150: %d", thumb.Height)
+	if dims.Y != 150 {
+		t.Errorf("unexpected height: 150: %d", dims.Y)
 	}
 }
 
@@ -229,7 +211,7 @@ func TestMetadataExtraction(t *testing.T) {
 	defer f.Close()
 
 	src, _, err := Process(f, Options{})
-	if err != nil && err != ErrNoCoverArt {
+	if err != nil && err != ErrCantThumbnail {
 		t.Fatal(err)
 	}
 	if src.Artist != "Test Artist" {
@@ -246,7 +228,7 @@ func TestWebmAlpha(t *testing.T) {
 	f := openSample(t, "alpha.webm")
 	defer f.Close()
 
-	_, thumb, err := Process(f, Options{
+	_, _, err := Process(f, Options{
 		ThumbDims: Dims{
 			Width:  150,
 			Height: 150,
@@ -255,17 +237,10 @@ func TestWebmAlpha(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !thumb.IsPNG {
-		t.Errorf("should contain alpha channel")
-	}
 }
 
 // Called on `go test -args all`
 func TestPanic(t *testing.T) {
-	if len(os.Args) != 2 || os.Args[1] != "all" {
-		t.Skip("Skipping panic test because it's not fixed yet")
-	}
-
 	type B struct {
 		c int
 	}

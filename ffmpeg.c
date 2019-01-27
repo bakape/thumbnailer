@@ -37,14 +37,6 @@ int create_context(AVFormatContext** ctx)
     return err;
 }
 
-void destroy(AVFormatContext* ctx)
-{
-    av_free(ctx->pb->buffer);
-    ctx->pb->buffer = NULL;
-    av_free(ctx->pb);
-    av_free(ctx);
-}
-
 // Create a AVCodecContext of the desired media type
 int codec_context(AVCodecContext** avcc, int* stream, AVFormatContext* avfc,
     const enum AVMediaType type)
@@ -95,12 +87,4 @@ end:
         *avcc = NULL;
     }
     return err;
-}
-
-// Format ffmpeg error code to string message
-char* format_error(const int code)
-{
-    char* buf = malloc(1024);
-    av_strerror(code, buf, 1024);
-    return buf;
 }

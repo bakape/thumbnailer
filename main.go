@@ -71,6 +71,9 @@ func Process(rs io.ReadSeeker, opts Options) (
 		return
 	}
 
+	// TODO: PDF Processing
+	// TODO: SVG processing
+
 	switch src.Mime {
 	case
 		"image/jpeg",

@@ -70,7 +70,57 @@ static AVFrame* select_best_frame(AVFrame* frames[], int size)
     return frames[best_i];
 }
 
-// Encode frame to RGBA image
+// Subsample frame to dst
+static int subsample(struct Buffer* dst, AVFrame* frame)
+{
+    struct SwsContext* ctx
+        = sws_getContext(frame->width, frame->height, frame->format, dst->width,
+            dst->height, AV_PIX_FMT_RGBA, SWS_AREA, NULL, NULL, NULL);
+    if (!ctx) {
+        return AVERROR(ENOMEM);
+    }
+
+    dst->size = (size_t)av_image_get_buffer_size(
+        AV_PIX_FMT_RGBA, dst->width, dst->height, 1);
+    // RGB have one plane
+    uint8_t* dst_data[1] = { dst->data = malloc(dst->size) };
+    int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
+
+    sws_scale(ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
+        frame->height, (uint8_t* const*)dst_data, dst_linesize);
+
+    sws_freeContext(ctx);
+    return 0;
+}
+
+// Downscale RGBA buffer in src to dst
+static int downscale(struct Buffer* dst, struct Buffer* src)
+{
+    // TODO: Fix alpha blending
+    struct SwsContext* ctx
+        = sws_getContext(src->width, src->height, AV_PIX_FMT_RGBA, dst->width,
+            dst->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);
+    if (!ctx) {
+        return AVERROR(ENOMEM);
+    }
+
+    dst->size = (size_t)av_image_get_buffer_size(
+        AV_PIX_FMT_RGBA, dst->width, dst->height, 1);
+    // RGB have one plane
+    uint8_t* src_data[1] = { src->data };
+    int src_linesize[1] = { 4 * src->width }; // RGBA stride
+    uint8_t* dst_data[1]
+        = { dst->data = malloc(dst->size) }; // RGB have one plane
+    int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
+
+    sws_scale(ctx, (const uint8_t* const*)src_data, src_linesize, 0,
+        src->height, (uint8_t* const*)dst_data, dst_linesize);
+
+    sws_freeContext(ctx);
+    return 0;
+}
+
+// Encode and scale frame to RGBA image
 static int encode_frame(
     struct Buffer* img, AVFrame* frame, const struct Dims thumb_dims)
 {
@@ -84,25 +134,18 @@ static int encode_frame(
     img->width = (unsigned long)((double)frame->width / scale);
     img->height = (unsigned long)((double)frame->height / scale);
 
-    // TODO: Use scaling that works better with alpha
-    struct SwsContext* ctx = sws_getContext(frame->width, frame->height,
-        frame->format, img->width, img->height, AV_PIX_FMT_RGBA,
-        SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);
-    if (!ctx) {
-        return AVERROR(ENOMEM);
+    // Subsample to 4 times the thumbnail size. A decent enough compromise
+    // between quality and performance for images around the thumbnail size
+    // and much bigger ones.
+    struct Buffer enlarged
+        = { .width = img->width * 4, .height = img->height * 4 };
+    int err = subsample(&enlarged, frame);
+    if (err) {
+        return err;
     }
-
-    img->size = (size_t)av_image_get_buffer_size(
-        AV_PIX_FMT_RGBA, frame->width, frame->height, 1);
-    uint8_t* dst_data[1];
-    img->data = dst_data[0] = malloc(img->size); // RGB have one plane
-    int dst_linesize[1] = { 4 * img->width }; // RGBA stride
-
-    sws_scale(ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
-        frame->height, (uint8_t* const*)dst_data, dst_linesize);
-
-    sws_freeContext(ctx);
-    return 0;
+    err = downscale(img, &enlarged);
+    free(enlarged.data);
+    return err;
 }
 
 int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,

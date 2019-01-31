@@ -97,9 +97,9 @@ static int subsample(struct Buffer* dst, AVFrame* frame)
 static int downscale(struct Buffer* dst, struct Buffer* src)
 {
     // TODO: Fix alpha blending
-    struct SwsContext* ctx
-        = sws_getContext(src->width, src->height, AV_PIX_FMT_RGBA, dst->width,
-            dst->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);
+    struct SwsContext* ctx = sws_getContext(src->width, src->height,
+        AV_PIX_FMT_RGBA, dst->width, dst->height, AV_PIX_FMT_RGBA,
+        SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);
     if (!ctx) {
         return AVERROR(ENOMEM);
     }
@@ -109,8 +109,7 @@ static int downscale(struct Buffer* dst, struct Buffer* src)
     // RGB have one plane
     uint8_t* src_data[1] = { src->data };
     int src_linesize[1] = { 4 * src->width }; // RGBA stride
-    uint8_t* dst_data[1]
-        = { dst->data = malloc(dst->size) }; // RGB have one plane
+    uint8_t* dst_data[1] = { dst->data = malloc(dst->size) };
     int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
 
     sws_scale(ctx, (const uint8_t* const*)src_data, src_linesize, 0,

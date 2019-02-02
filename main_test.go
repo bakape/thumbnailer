@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var samples = []string{
+var samples = [...]string{
 	"no_cover.mp4",
 	"no_sound.mkv",
 	"no_sound.ogg",

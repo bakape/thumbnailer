@@ -68,7 +68,9 @@ func TestProcess(t *testing.T) {
 			}
 
 			t.Logf("src:   %v\n", src)
-			t.Logf("thumb: %v\n", thumb)
+			if thumb != nil {
+				t.Logf("thumb: %v\t\n", thumb.Bounds())
+			}
 		})
 	}
 }

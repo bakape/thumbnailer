@@ -5,9 +5,6 @@ import (
 	"fmt"
 )
 
-// Alias for backwards compatibility
-type UnsupportedMIMEError = ErrUnsupportedMIME
-
 // Indicates the MIME type of the file could not be detected as a supported type
 // or was not in the AcceptedMimeTypes list, if defined.
 type ErrUnsupportedMIME string
@@ -30,9 +27,11 @@ func (e ErrInvalidImage) Error() string {
 	return fmt.Sprintf("invalid image: %s", string(e))
 }
 
-// Source image is corrupt and could not be decoded
-type ErrCorruptImage string
+// ErrorCovert wraps an error that happened during cover art thumbnailing
+type ErrCoverArt struct {
+	Err error
+}
 
-func (e ErrCorruptImage) Error() string {
-	return string(e)
+func (e ErrCoverArt) Error() string {
+	return "cover art: " + e.Err.Error()
 }

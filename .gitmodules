@@ -1,6 +1,0 @@
-[submodule "libimagequant"]
-	path = libimagequant
-	url = https://github.com/ImageOptim/libimagequant.git
-[submodule "lodepng"]
-	path = lodepng
-	url = https://github.com/lvandeve/lodepng.git

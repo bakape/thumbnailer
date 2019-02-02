@@ -3,6 +3,7 @@ package thumbnailer
 import (
 	"bytes"
 	"encoding/binary"
+	"image"
 	"io"
 )
 
@@ -80,8 +81,9 @@ var (
 	overrideProcessors = map[string]Processor{}
 )
 
-// Processor is a specialized file processor for a specific file type
-type Processor func(Source, Options) (Source, Thumbnail, error)
+// Processor is a specialized file processor for a specific file type.
+// Returns thumbnail and error.
+type Processor func(io.ReadSeeker, *Source, Options) (image.Image, error)
 
 // Matcher takes up to the first 512 bytes of a file and returns the MIME type
 // and canonical extension, that were matched. Empty string indicates no match.
@@ -187,6 +189,7 @@ func matchMP3(data []byte) (mime string, ext string) {
 
 // RegisterMatcher adds an extra magic prefix-based MIME type matcher to the
 // default set with an included canonical file extension.
+//
 // Not safe to use concurrently with file processing.
 func RegisterMatcher(m Matcher) {
 	matchers = append(matchers, m)
@@ -194,6 +197,7 @@ func RegisterMatcher(m Matcher) {
 
 // RegisterProcessor registers a file processor for a specific MIME type.
 // Can be used to add support for additional MIME types or as an override.
+//
 // Not safe to use concurrently with file processing.
 func RegisterProcessor(mime string, fn Processor) {
 	overrideProcessors[mime] = fn
@@ -201,34 +205,24 @@ func RegisterProcessor(mime string, fn Processor) {
 
 // DetectMIME  detects the MIME typ of the r. r must be at starting position.
 // accepted, if not nil, specifies MIME types to not reject with
-// UnsupportedMIMEError.
-func DetectMIME(r io.Reader, accepted map[string]bool) (string, string, error) {
-	buf := make([]byte, sniffSize)
-	read, err := r.Read(buf)
+// ErrUnsupportedMIME.
+func DetectMIME(rs io.ReadSeeker, accepted map[string]bool,
+) (
+	mime, ext string, err error,
+) {
+	_, err = rs.Seek(0, 0)
 	if err != nil {
-		return "", "", err
+		return
+	}
+	buf := make([]byte, sniffSize)
+	read, err := rs.Read(buf)
+	if err != nil {
+		return
 	}
 	if read < sniffSize {
 		buf = buf[:read]
 	}
-	return detectMimeType(buf, accepted)
-}
 
-// DetectMIMEBuffer is like DetectMIME, but accepts a []byte slice already
-// loaded into memory.
-func DetectMIMEBuffer(buf []byte, accepted map[string]bool) (
-	string, string, error,
-) {
-	if len(buf) > sniffSize {
-		buf = buf[:sniffSize]
-	}
-	return detectMimeType(buf, accepted)
-}
-
-// Can be passed either the full read file as []byte or io.ReadSeeker
-func detectMimeType(buf []byte, accepted map[string]bool) (
-	mime, ext string, err error,
-) {
 	for _, m := range matchers {
 		mime, ext = m.Match(buf)
 		if mime != "" {
@@ -244,50 +238,10 @@ func detectMimeType(buf []byte, accepted map[string]bool) (
 
 	switch {
 	case mime == "":
-		err = UnsupportedMIMEError("application/octet-stream")
+		err = ErrUnsupportedMIME("application/octet-stream")
 	// Check if MIME is accepted, if specified
 	case accepted != nil && !accepted[mime]:
-		err = UnsupportedMIMEError(mime)
+		err = ErrUnsupportedMIME(mime)
 	}
 	return
-}
-
-func processFile(src Source, opts Options) (Source, Thumbnail, error) {
-	override := overrideProcessors[src.Mime]
-	if override != nil {
-		return override(src, opts)
-	}
-
-	switch src.Mime {
-	case
-		"image/jpeg",
-		"image/png",
-		"image/gif",
-		"image/webp",
-		"application/pdf",
-		"image/bmp",
-		"image/photoshop",
-		"image/tiff",
-		"image/x-icon":
-		return processImage(src, opts)
-	case
-		"audio/mpeg",
-		"audio/aac",
-		"audio/wave",
-		"audio/x-flac",
-		"audio/midi":
-		return processAudio(src, opts)
-	case
-		"application/ogg",
-		"video/webm",
-		"video/x-matroska",
-		"video/mp4",
-		"video/avi",
-		"video/quicktime",
-		"video/x-ms-wmv",
-		"video/x-flv":
-		return processVideo(src, opts)
-	default:
-		return src, Thumbnail{}, UnsupportedMIMEError(src.Mime)
-	}
 }

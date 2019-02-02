@@ -1,6 +1,6 @@
 package thumbnailer
 
-// #cgo pkg-config: libavcodec libavutil libavformat
+// #cgo pkg-config: libavcodec libavutil libavformat libswscale
 // #cgo CFLAGS: -std=c11
 // #include "ffmpeg.h"
 import "C"
@@ -33,10 +33,6 @@ var (
 	// ErrStreamNotFound denotes no steam of this media type was found
 	ErrStreamNotFound = errors.New("no stream of this type found")
 )
-
-func init() {
-	C.init()
-}
 
 // C can not retain any pointers to Go memory after the cgo call returns. We
 // still need a way to bind AVFormatContext instances to Go I/O functions. To do
@@ -84,9 +80,10 @@ type ffError C.int
 
 // Error formats the FFmpeg error in human-readable format
 func (f ffError) Error() string {
-	str := C.format_error(C.int(f))
-	defer C.free(unsafe.Pointer(str))
-	return fmt.Sprintf("ffmpeg: %s", C.GoString(str))
+	buf := C.malloc(1024)
+	defer C.free(buf)
+	C.av_strerror(C.int(f), (*C.char)(buf), 1024)
+	return fmt.Sprintf("ffmpeg: %s", C.GoString((*C.char)(buf)))
 }
 
 // Code returns the underlying FFmpeg error code
@@ -134,7 +131,10 @@ func (c *FFContext) Close() {
 		C.avcodec_free_context(&ci.ctx)
 	}
 	if c.avFormatCtx != nil {
-		C.destroy(c.avFormatCtx)
+		C.av_free(unsafe.Pointer(c.avFormatCtx.pb.buffer))
+		c.avFormatCtx.pb.buffer = nil
+		C.av_free(unsafe.Pointer(c.avFormatCtx.pb))
+		C.av_free(unsafe.Pointer(c.avFormatCtx))
 	}
 	handlersMap.Delete(c.handlerKey)
 }
@@ -192,9 +192,22 @@ func (c *FFContext) HasStream(typ FFMediaType) (bool, error) {
 	}
 }
 
-// Duration returns the duration of the input
-func (c *FFContext) Duration() time.Duration {
+// Length returns the duration of the input
+func (c *FFContext) Length() time.Duration {
 	return time.Duration(c.avFormatCtx.duration * 1000)
+}
+
+// Dims returns dimensions of the best video (or image) stream in the media
+func (c *FFContext) Dims() (dims Dims, err error) {
+	ci, err := c.codecContext(FFVideo)
+	if err != nil {
+		return
+	}
+	dims = Dims{
+		Width:  uint(ci.ctx.width),
+		Height: uint(ci.ctx.height),
+	}
+	return
 }
 
 //export readCallBack

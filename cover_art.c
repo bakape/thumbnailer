@@ -1,4 +1,4 @@
-#include "audio.h"
+#include "cover_art.h"
 
 // Extract embedded image
 AVPacket retrieve_cover_art(AVFormatContext* ctx)

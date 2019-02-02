@@ -203,9 +203,10 @@ func RegisterProcessor(mime string, fn Processor) {
 	overrideProcessors[mime] = fn
 }
 
-// DetectMIME  detects the MIME typ of the r. r must be at starting position.
-// accepted, if not nil, specifies MIME types to not reject with
-// ErrUnsupportedMIME.
+// DetectMIME  detects the MIME typ of the rs.
+//
+// accepted: if not nil, specifies MIME types to not reject with
+// ErrUnsupportedMIME
 func DetectMIME(rs io.ReadSeeker, accepted map[string]bool,
 ) (
 	mime, ext string, err error,

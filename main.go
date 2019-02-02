@@ -26,7 +26,7 @@ type Source struct {
 	// Canonical file extension
 	Extension string
 
-	// optional metadata
+	// Optional metadata
 	Meta
 }
 
@@ -43,15 +43,16 @@ type Dims struct {
 // Options suplied to the Thumbnail function
 type Options struct {
 	// Maximum source image dimensions. Any image exceeding either will be
-	// rejected and return with ErrTooTall or ErrTooWide. If not set, all images
-	// are processed.
+	// rejected and return with ErrTooTall or ErrTooWide.
+	// If not set, all image processing will not be restricted by that
+	// dimension.
 	MaxSourceDims Dims
 
 	// Target Maximum dimensions for the thumbnail
 	ThumbDims Dims
 
-	// MIME types to accept for thumbnailing. If nil, all MIME types will be
-	// processed.
+	// MIME types to accept for thumbnailing.
+	// If nil, all MIME types will be processed.
 	AcceptedMimeTypes map[string]bool
 }
 

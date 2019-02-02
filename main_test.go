@@ -138,22 +138,3 @@ func TestSourceAlreadyThumbSize(t *testing.T) {
 		t.Errorf("unexpected height: 150: %d", dims.Y)
 	}
 }
-
-// Called on `go test -args all`
-func TestPanic(t *testing.T) {
-	type B struct {
-		c int
-	}
-	type A struct {
-		b *B
-	}
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
-	a := A{nil}
-	fmt.Println(a.b.c)
-}

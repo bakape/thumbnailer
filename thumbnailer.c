@@ -40,9 +40,9 @@ static AVFrame* select_best_frame(AVFrame* frames[], int size)
         uint8_t* p = f->data[0];
         for (int j = 0; j < f->height; j++) {
             for (int i = 0; i < f->width; i++) {
-                for (int k = 0; k < 3; k++) {
-                    hists[frame_i][k * 256 + p[i * 3 + k]]++;
-                }
+                hists[frame_i][p[i * 3]]++;
+                hists[frame_i][256 + p[i * 3 + 1]]++;
+                hists[frame_i][2 * 256 + p[i * 3 + 2]]++;
             }
             p += f->linesize[0];
         }
@@ -70,53 +70,85 @@ static AVFrame* select_best_frame(AVFrame* frames[], int size)
     return frames[best_i];
 }
 
-// Subsample frame to dst
-static int subsample(struct Buffer* dst, AVFrame* frame)
+// Calculate size and allocate buffer
+static void alloc_buffer(struct Buffer* dst)
+{
+    dst->size
+        = av_image_get_buffer_size(AV_PIX_FMT_RGBA, dst->width, dst->height, 1);
+    dst->data = malloc(dst->size);
+}
+
+// Use point subsampling to scale image up to 4 times thumbnail size
+static int upsample(struct Buffer* dst, const AVFrame const* frame)
 {
     struct SwsContext* ctx
         = sws_getContext(frame->width, frame->height, frame->format, dst->width,
-            dst->height, AV_PIX_FMT_RGBA, SWS_AREA, NULL, NULL, NULL);
+            dst->height, AV_PIX_FMT_RGBA, SWS_POINT, NULL, NULL, NULL);
     if (!ctx) {
         return AVERROR(ENOMEM);
     }
 
-    dst->size = (size_t)av_image_get_buffer_size(
-        AV_PIX_FMT_RGBA, dst->width, dst->height, 1);
-    // RGB have one plane
-    uint8_t* dst_data[1] = { dst->data = malloc(dst->size) };
+    alloc_buffer(dst);
+    uint8_t* dst_data[1] = { dst->data }; // RGB have one plane
     int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
 
     sws_scale(ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
-        frame->height, (uint8_t* const*)dst_data, dst_linesize);
+        frame->height, dst_data, dst_linesize);
 
     sws_freeContext(ctx);
     return 0;
 }
 
-// Downscale RGBA buffer in src to dst
-static int downscale(struct Buffer* dst, struct Buffer* src)
+struct Pixel {
+    // uint16_t fits the max value of 255 * 16
+    uint16_t r, g, b, a;
+};
+
+// Downscale upsampled image
+static void downscale(struct Buffer* dst, const struct Buffer const* src)
 {
-    // TODO: Fix alpha blending
-    struct SwsContext* ctx = sws_getContext(src->width, src->height,
-        AV_PIX_FMT_RGBA, dst->width, dst->height, AV_PIX_FMT_RGBA,
-        SWS_BICUBIC | SWS_ACCURATE_RND, NULL, NULL, NULL);
-    if (!ctx) {
-        return AVERROR(ENOMEM);
+    alloc_buffer(dst);
+
+    // First sum all pixels into a multidimensional array
+    struct Pixel img[dst->height][dst->width];
+    memset(img, 0, dst->height * dst->width * sizeof(struct Pixel));
+
+    int i = 0;
+    for (int y = 0; y < src->height; y++) {
+        const int dest_y = y ? y / 4 : 0;
+        for (int x = 0; x < src->width; x++) {
+            struct Pixel* p = &img[dest_y][x ? x / 4 : 0];
+
+            // Skip pixels with maxed transparency
+            const uint8_t alpha = src->data[i + 3];
+            if (alpha == 0) {
+                p->a += alpha;
+            } else {
+                // Unrolled for less data dependency
+                p->r += src->data[i];
+                p->g += src->data[i + 1];
+                p->b += src->data[i + 2];
+                p->a += alpha;
+            }
+
+            i += 4; // Less data dependency than i++
+        }
     }
 
-    dst->size = (size_t)av_image_get_buffer_size(
-        AV_PIX_FMT_RGBA, dst->width, dst->height, 1);
-    // RGB have one plane
-    uint8_t* src_data[1] = { src->data };
-    int src_linesize[1] = { 4 * src->width }; // RGBA stride
-    uint8_t* dst_data[1] = { dst->data = malloc(dst->size) };
-    int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
+    // Then average them and arrange as RGBA
+    i = 0;
+    for (int y = 0; y < dst->height; y++) {
+        for (int x = 0; x < dst->width; x++) {
+            const struct Pixel p = img[y][x];
 
-    sws_scale(ctx, (const uint8_t* const*)src_data, src_linesize, 0,
-        src->height, (uint8_t* const*)dst_data, dst_linesize);
-
-    sws_freeContext(ctx);
-    return 0;
+            // Unrolled for less data dependency
+            dst->data[i] = p.r ? p.r / 16 : 0;
+            dst->data[i + 1] = p.g ? p.g / 16 : 0;
+            dst->data[i + 2] = p.b ? p.b / 16 : 0;
+            dst->data[i + 3] = p.a ? p.a / 16 : 0;
+            i += 4;
+        }
+    }
 }
 
 // Encode and scale frame to RGBA image
@@ -133,16 +165,16 @@ static int encode_frame(
     img->width = (unsigned long)((double)frame->width / scale);
     img->height = (unsigned long)((double)frame->height / scale);
 
-    // Subsample to 4 times the thumbnail size. A decent enough compromise
-    // between quality and performance for images around the thumbnail size
-    // and much bigger ones.
+    // Subsample to 4 times the thumbnail size and then Box subsample that.
+    // A decent enough compromise between quality and performance for images
+    // around the thumbnail size and much bigger ones.
     struct Buffer enlarged
         = { .width = img->width * 4, .height = img->height * 4 };
-    int err = subsample(&enlarged, frame);
+    int err = upsample(&enlarged, frame);
     if (err) {
         return err;
     }
-    err = downscale(img, &enlarged);
+    downscale(img, &enlarged);
     free(enlarged.data);
     return err;
 }

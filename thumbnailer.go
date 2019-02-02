@@ -83,14 +83,16 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 	if err != nil {
 		return
 	}
+	if src.HasVideo {
+		src.Dims, err = c.Dims()
+		if err != nil {
+			return
+		}
+	}
 	if c.HasCoverArt() {
 		thumb, err = processCoverArt(c.CoverArt(), opts)
 	} else {
 		if src.HasVideo {
-			src.Dims, err = c.Dims()
-			if err != nil {
-				return
-			}
 			max := opts.MaxSourceDims
 			if max.Width != 0 && src.Width > max.Width {
 				err = ErrTooWide

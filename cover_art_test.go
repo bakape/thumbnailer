@@ -6,6 +6,8 @@ import (
 )
 
 func TestCoverArt(t *testing.T) {
+	t.Parallel()
+
 	type testCase struct {
 		file string
 		has  bool

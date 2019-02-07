@@ -179,31 +179,17 @@ static int encode_frame(
     return err;
 }
 
-int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
-    AVCodecContext* avcc, const int stream, const struct Dims thumb_dims)
+// Read from stream until a full frame is read
+static int read_frame(AVFormatContext* avfc, AVCodecContext* avcc,
+    AVFrame* frame, const int stream)
 {
     int err = 0;
-    int size = 0;
-    int i = 0;
     AVPacket pkt;
-    AVFrame* frames[MAX_FRAMES] = { NULL };
-    AVFrame* next = NULL;
 
-    // Read up to 10 frames in 10 frame intervals
+    // Continue until frame read
     while (1) {
         err = av_read_frame(avfc, &pkt);
-        switch (err) {
-        case 0:
-            break;
-        case -1:
-            // I don't know why, but this happens for some AVI and OGG files
-            // mid-read. If some frames were actually read, just silence the
-            // error and select from those.
-            if (size) {
-                err = 0;
-            }
-            goto end;
-        default:
+        if (err) {
             goto end;
         }
 
@@ -213,58 +199,65 @@ int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
                 goto end;
             }
 
-            if (!next) {
-                next = av_frame_alloc();
-                if (!next) {
-                    err = AVERROR(ENOMEM);
-                    goto end;
-                }
-            }
-            err = avcodec_receive_frame(avcc, next);
+            err = avcodec_receive_frame(avcc, frame);
             switch (err) {
             case 0:
-                // Read only every 10th frame
-                if (!(i++ % 10)) {
-                    frames[size++] = next;
-                    next = NULL;
-                    if (size == MAX_FRAMES) {
-                        goto end;
-                    }
-                } else {
-                    av_frame_free(&next);
-                    next = NULL;
-                }
-                break;
+                goto end;
             case AVERROR(EAGAIN):
+                av_packet_unref(&pkt);
                 break;
             default:
                 goto end;
             }
         }
-        av_packet_unref(&pkt);
     }
 
 end:
-    if (pkt.buf) {
-        av_packet_unref(&pkt);
-    }
-    switch (err) {
-    case AVERROR_EOF:
-        err = 0;
-    case 0:
-        if (!size) {
-            err = -1;
-        } else {
-            err = encode_frame(
-                img, select_best_frame(frames, size), thumb_dims);
+    av_packet_unref(&pkt);
+    return err;
+}
+
+int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
+    AVCodecContext* avcc, const int stream, const struct Dims thumb_dims)
+{
+    int err = 0;
+    int size = 0;
+    int i = 0;
+    AVFrame* frames[MAX_FRAMES] = { NULL };
+    AVFrame* next = NULL;
+
+    // Read up to 10 frames in 10 frame intervals
+    while (1) {
+        next = av_frame_alloc();
+        err = read_frame(avfc, avcc, next, stream);
+        if (err) {
+            goto end;
         }
-        break;
+
+        // Save only every 10th frame
+        if (!(i++ % 10)) {
+            frames[size++] = next;
+            next = NULL;
+            if (size == MAX_FRAMES) {
+                goto end;
+            }
+        } else {
+            av_frame_free(&next);
+        }
     }
+
+end:
+    if (size) {
+        // Ignore all read errors, if at least one frame read
+        err = encode_frame(img, select_best_frame(frames, size), thumb_dims);
+    }
+
     for (int i = 0; i < size; i++) {
         av_frame_free(&frames[i]);
     }
     if (next) {
         av_frame_free(&next);
     }
+
     return err;
 }

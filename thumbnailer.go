@@ -1,6 +1,7 @@
 package thumbnailer
 
 // #include "thumbnailer.h"
+// #include <libavutil/log.h>
 import "C"
 import (
 	"errors"
@@ -17,6 +18,10 @@ var (
 	// ErrGetFrame denotes an unknown failure to retrieve a video frame
 	ErrGetFrame = errors.New("failed to get frame")
 )
+
+func init() {
+	C.av_log_set_level(C.AV_LOG_ERROR)
+}
 
 // Thumbnail generates a thumbnail from a representative frame of the media.
 // Images count as one frame media.

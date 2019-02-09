@@ -13,17 +13,20 @@
  * Adapted by Janis Petersons <bakape@gmail.com>
  */
 
-#define HIST_SIZE (3 * 256)
+#define HIST_SIZE 256
+#define HIST_CHANNELS 3
 #define MAX_FRAMES 10
 
 // Compute sum-square deviation to estimate "closeness"
-static double compute_error(
-    const int hist[HIST_SIZE], const double median[HIST_SIZE])
+static double compute_error(const unsigned hist[HIST_SIZE][HIST_CHANNELS],
+    const double average[HIST_SIZE][HIST_CHANNELS])
 {
     double sum_sq_err = 0;
     for (int i = 0; i < HIST_SIZE; i++) {
-        const double err = median[i] - (double)hist[i];
-        sum_sq_err += err * err;
+        for (int j = 0; j < HIST_CHANNELS; j++) {
+            const double err = average[i][j] - (double)hist[i][j];
+            sum_sq_err += err * err;
+        }
     }
     return sum_sq_err;
 }
@@ -31,30 +34,42 @@ static double compute_error(
 // Select best frame based on RGB histograms
 static AVFrame* select_best_frame(AVFrame* frames[], int size)
 {
+    if (size == 1) {
+        return frames[0];
+    }
+
     // RGB color distribution histograms of the frames
-    int hists[MAX_FRAMES][HIST_SIZE] = { 0 };
+    unsigned hists[MAX_FRAMES][HIST_SIZE][HIST_CHANNELS] = { 0 };
 
     // Compute each frame's histogram
     for (int frame_i = 0; frame_i < size; frame_i++) {
         const AVFrame* f = frames[frame_i];
-        uint8_t* p = f->data[0];
-        for (int j = 0; j < f->height; j++) {
-            for (int i = 0; i < f->width; i++) {
-                hists[frame_i][p[i * 3]]++;
-                hists[frame_i][256 + p[i * 3 + 1]]++;
-                hists[frame_i][2 * 256 + p[i * 3 + 2]]++;
+        const int line_size = f->linesize[0];
+        const uint8_t* p = f->data[0];
+        for (int i = 0; i < f->height; i++) {
+            const int offset = line_size * i;
+            for (int j = 0; j < line_size; j++) {
+                // Count amount of pixels in each channel.
+                // Using modulo to account for frames in non-3-byte pixel
+                // formats.
+                hists[frame_i][p[offset + j]][j % HIST_CHANNELS]++;
             }
-            p += f->linesize[0];
         }
     }
 
     // Average all histograms
-    double average[HIST_SIZE] = { 0 };
-    for (int j = 0; j < size; j++) {
-        for (int i = 0; i < size; i++) {
-            average[j] = (double)hists[i][j];
+    double average[HIST_SIZE][HIST_CHANNELS] = { 0 };
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < HIST_SIZE; j++) {
+            // Unrolled for less data dependency
+            average[i][0] += (double)hists[i][j][0];
+            average[i][1] += (double)hists[i][j][1];
+            average[i][2] += (double)hists[i][j][2];
         }
-        average[j] /= size;
+        // Unrolled for less data dependency
+        average[i][0] /= size;
+        average[i][1] /= size;
+        average[i][2] /= size;
     }
 
     // Find the frame closer to the average using the sum of squared errors

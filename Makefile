@@ -1,3 +1,6 @@
+libs = $(addprefix -l,$(subst .a,,$(subst vendor_c/lib/lib,,$(wildcard vendor_c/lib/*.a))))
+env = CGO_CFLAGS="-I$(CURDIR)/vendor_c/include" CGO_LDFLAGS="-L$(CURDIR)/vendor_c/lib $(libs)" PKG_CONFIG_PATH="$(CURDIR)/vendor_c/lib/pkgconfig"
+
 WIN_ARCH=amd64
 
 # Path to and target for the MXE cross environment for cross-compiling to
@@ -26,3 +29,15 @@ cross_tests_windows:
 	PKG_CONFIG_PATH=$(MXE_ROOT)/$(MXE_TARGET)/lib/pkgconfig \
 	go test -a -c -o test.exe --ldflags '-extldflags "-static"'
 	wine ./test.exe
+
+# vendor ffmpeg 
+deps:
+	mkdir -p vendor_c/src
+	git clone https://github.com/FFmpeg/FFmpeg vendor_c/src/ffmpeg
+	cd vendor_c/src/ffmpeg && git checkout n4.0.2
+	cd vendor_c/src/ffmpeg && ./configure --prefix=../.. $(configure)
+	cd vendor_c/src/ffmpeg && make
+	cd vendor_c/src/ffmpeg && make install
+
+build:
+	$(env) go build

@@ -1,6 +1,7 @@
 package thumbnailer
 
 // #include "cover_art.h"
+// #include "thumbnailer.h"
 import "C"
 import (
 	"bytes"

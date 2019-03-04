@@ -40,6 +40,7 @@ var samples = [...]string{
 	"start_black.webm", // Check the histogram thumbnailing
 	"exif_orientation.jpg",
 	"rare_brand.mp4",
+	"invalid_data.jpg", // Check handling images with some invalid data
 }
 
 func TestProcess(t *testing.T) {

@@ -23,7 +23,7 @@ int create_context(AVFormatContext** ctx)
 
     c->pb = avio_alloc_context(
         buf, bufSize, 0, c, readCallBack, NULL, seekCallBack);
-    c->flags |= AVFMT_FLAG_CUSTOM_IO;
+    c->flags |= AVFMT_FLAG_CUSTOM_IO | AVFMT_FLAG_DISCARD_CORRUPT;
 
     int err = avformat_open_input(ctx, NULL, NULL, NULL);
     if (err < 0) {

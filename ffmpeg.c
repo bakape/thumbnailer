@@ -15,8 +15,7 @@ void init(void)
     av_log_set_level(16);
 }
 
-// Initialize am AVFormatContext with the buffered file
-int create_context(AVFormatContext** ctx)
+int create_context(AVFormatContext** ctx, const char* input_format)
 {
     unsigned char* buf = malloc(bufSize);
     AVFormatContext* c = *ctx;
@@ -25,7 +24,11 @@ int create_context(AVFormatContext** ctx)
         buf, bufSize, 0, c, readCallBack, NULL, seekCallBack);
     c->flags |= AVFMT_FLAG_CUSTOM_IO | AVFMT_FLAG_DISCARD_CORRUPT;
 
-    int err = avformat_open_input(ctx, NULL, NULL, NULL);
+    AVInputFormat* avif = NULL;
+    if (input_format) {
+        avif = av_find_input_format(input_format);
+    }
+    int err = avformat_open_input(ctx, NULL, avif, NULL);
     if (err < 0) {
         return err;
     }
@@ -37,7 +40,6 @@ int create_context(AVFormatContext** ctx)
     return err;
 }
 
-// Create a AVCodecContext of the desired media type
 int codec_context(AVCodecContext** avcc, int* stream, AVFormatContext* avfc,
     const enum AVMediaType type)
 {

@@ -70,7 +70,7 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 	if err != nil {
 		return
 	}
-	c, err := NewFFContext(rs)
+	c, err := newFFContextWithFormat(rs, inputFormats[src.Mime])
 	if err != nil {
 		return
 	}

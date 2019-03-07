@@ -32,6 +32,27 @@ var (
 
 	// ErrStreamNotFound denotes no steam of this media type was found
 	ErrStreamNotFound = errors.New("no stream of this type found")
+
+	// Input format specifiers for FFmpeg. These save FFmpeg some overhead on
+	// format detection and also prevent failure to open input on format
+	// detection failure.
+	inputFormats = map[string]*C.char{
+		"image/jpeg":       C.CString("mjpeg"),
+		"image/png":        C.CString("image2"),
+		"image/gif":        C.CString("gif"),
+		"image/webp":       C.CString("webp"),
+		"application/ogg":  C.CString("ogg"),
+		"video/webm":       C.CString("webm"),
+		"video/x-matroska": C.CString("matroska"),
+		"video/mp4":        C.CString("mp4"),
+		"video/avi":        C.CString("avi"),
+		"video/quicktime":  C.CString("mp4"),
+		"video/x-flv":      C.CString("flv"),
+		"audio/mpeg":       C.CString("mp3"),
+		"audio/aac":        C.CString("aac"),
+		"audio/wave":       C.CString("wav"),
+		"audio/x-flac":     C.CString("flac"),
+	}
 )
 
 // C can not retain any pointers to Go memory after the cgo call returns. We
@@ -102,6 +123,13 @@ type FFContext struct {
 // It is the responsibility of the caller to call Close() after finishing
 // using the context.
 func NewFFContext(rs io.ReadSeeker) (*FFContext, error) {
+	return newFFContextWithFormat(rs, nil)
+}
+
+// Like NewFFContext, but optionally specifies the passed input format explicitly.
+// inputFormat can be NULL.
+func newFFContextWithFormat(rs io.ReadSeeker, inputFormat *C.char,
+) (*FFContext, error) {
 	ctx := C.avformat_alloc_context()
 	this := &FFContext{
 		avFormatCtx: ctx,
@@ -111,7 +139,7 @@ func NewFFContext(rs io.ReadSeeker) (*FFContext, error) {
 	this.handlerKey = uintptr(unsafe.Pointer(ctx))
 	handlersMap.Set(this.handlerKey, rs)
 
-	err := C.create_context(&this.avFormatCtx)
+	err := C.create_context(&this.avFormatCtx, inputFormat)
 	if err < 0 {
 		this.Close()
 		return nil, ffError(err)

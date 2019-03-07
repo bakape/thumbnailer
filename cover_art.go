@@ -27,9 +27,9 @@ func (c *FFContext) CoverArt() []byte {
 }
 
 func processCoverArt(buf []byte, opts Options) (thumb image.Image, err error) {
-	var src Source
-	opts.AcceptedMimeTypes = nil // Accept anything processable for cover art
-	thumb, err = processMedia(bytes.NewReader(buf), &src, opts)
+	// Accept anything processable for cover art
+	opts.AcceptedMimeTypes = nil
+	_, thumb, err = Process(bytes.NewReader(buf), opts)
 	if err != nil {
 		err = ErrCoverArt{err}
 	}

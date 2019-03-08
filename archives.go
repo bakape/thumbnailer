@@ -116,7 +116,8 @@ func processZip(rs io.ReadSeeker, src *Source, opts Options,
 		defer os.Remove(tmp.Name())
 		defer tmp.Close()
 
-		_, err = io.Copy(tmp, f)
+		// LimitReader protects against decompression bombs
+		_, err = io.Copy(tmp, io.LimitReader(f, size*4))
 		if err != nil {
 			return
 		}

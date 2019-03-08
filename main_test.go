@@ -41,6 +41,12 @@ var samples = [...]string{
 	"exif_orientation.jpg",
 	"rare_brand.mp4",
 	"invalid_data.jpg", // Check handling images with some invalid data
+	"sample.zip",
+}
+
+var ignore = map[string]bool{
+	"invalid_data.jpg": true,
+	"sample.zip":       true,
 }
 
 func TestProcess(t *testing.T) {

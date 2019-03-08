@@ -16,6 +16,9 @@ func TestDims(t *testing.T) {
 	var cases []testCase
 	var c testCase
 	for _, f := range samples {
+		if ignore[f] {
+			continue
+		}
 		c.name = f
 		switch {
 		case f == "with_cover.mp3":

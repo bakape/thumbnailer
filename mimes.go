@@ -76,6 +76,10 @@ var matchers = []Matcher{
 	},
 	&exactSig{"zip", mimeZip, []byte("\x50\x4B\x03\x04")},
 	&exactSig{"rar", mimeRar, []byte("\x52\x61\x72\x20\x1A\x07\x00")},
+
+	// RAR v5 archive
+	&exactSig{"rar", mimeRar, []byte("\x52\x61\x72\x21\x1A\x07\x01\x00")},
+
 	&exactSig{"7z", mime7Zip, []byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C}},
 }
 

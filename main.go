@@ -114,6 +114,8 @@ func Process(rs io.ReadSeeker, opts Options) (
 			fn = processMedia
 		case mimeZip:
 			fn = processZip
+		case mimeRar:
+			fn = processRar
 		default:
 			err = ErrUnsupportedMIME(src.Mime)
 			return

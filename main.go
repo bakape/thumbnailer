@@ -1,6 +1,5 @@
-// Package thumbnailer provides a more efficient image/video/audio/PDF
-// thumbnailer than available with native Go processing libraries through
-// GraphicsMagic and ffmpeg bindings.
+// Package thumbnailer provides a more efficient media thumbnailer than \
+// available with native Go processing libraries through ffmpeg bindings.
 package thumbnailer
 
 import (

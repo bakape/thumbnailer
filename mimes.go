@@ -74,6 +74,13 @@ var matchers = []Matcher{
 		[]byte("\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
 		[]byte("MThd\x00\x00\x00\x06"),
 	},
+	&exactSig{"zip", mimeZip, []byte("\x50\x4B\x03\x04")},
+	&exactSig{"rar", mimeRar, []byte("\x52\x61\x72\x20\x1A\x07\x00")},
+
+	// RAR v5 archive
+	&exactSig{"rar", mimeRar, []byte("\x52\x61\x72\x21\x1A\x07\x01\x00")},
+
+	&exactSig{"7z", mime7Zip, []byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C}},
 }
 
 var (
@@ -83,9 +90,11 @@ var (
 
 // Processor is a specialized file processor for a specific file type.
 // Returns thumbnail and error.
+//
+// io.ReadSeeker is the start position, when passed to Processor.
 type Processor func(io.ReadSeeker, *Source, Options) (image.Image, error)
 
-// Matcher takes up to the first 512 bytes of a file and returns the MIME type
+// Matcher takes up to the first 4 KB of a file and returns the MIME type
 // and canonical extension, that were matched. Empty string indicates no match.
 type Matcher interface {
 	Match([]byte) (mime string, extension string)

@@ -81,10 +81,7 @@ func (h *handlerMap) Get(k unsafe.Pointer) io.ReadSeeker {
 	handlers, ok := h.m[uintptr(k)]
 	h.RUnlock()
 	if !ok {
-		panic(fmt.Sprintf(
-			"no handlers instance found, according to pointer: %v",
-			k,
-		))
+		panic(fmt.Errorf("no handler instance found for pointer: %v", k))
 	}
 	return handlers
 }

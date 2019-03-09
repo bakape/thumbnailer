@@ -35,3 +35,13 @@ type ErrCoverArt struct {
 func (e ErrCoverArt) Error() string {
 	return "cover art: " + e.Err.Error()
 }
+
+// ErrArchive wraps an error that happened during thumbnailing a file in zip
+// archive
+type ErrArchive struct {
+	Err error
+}
+
+func (e ErrArchive) Error() string {
+	return "archive: " + e.Err.Error()
+}

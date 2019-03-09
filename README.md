@@ -1,8 +1,8 @@
 [![GoDoc](https://godoc.org/github.com/bakape/thumbnailer?status.svg)](https://godoc.org/github.com/bakape/thumbnailer)
 [![Build Status](https://travis-ci.com/bakape/thumbnailer.svg?branch=master)](https://travis-ci.com/bakape/thumbnailer)
 # thumbnailer
-Package thumbnailer provides a more efficient image/video/audio thumbnailer
-than available with native Go processing libraries through ffmpeg bindings.
+Package thumbnailer provides a more efficient media thumbnailer than available
+with native Go processing libraries through ffmpeg bindings.
 
 For a comprehensive list of file formats supported by default see
 main.go:Process().

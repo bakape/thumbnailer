@@ -1,6 +1,5 @@
-// Package thumbnailer provides a more efficient image/video/audio/PDF
-// thumbnailer than available with native Go processing libraries through
-// GraphicsMagic and ffmpeg bindings.
+// Package thumbnailer provides a more efficient media thumbnailer than \
+// available with native Go processing libraries through ffmpeg bindings.
 package thumbnailer
 
 import (
@@ -48,11 +47,17 @@ type Options struct {
 	// dimension.
 	MaxSourceDims Dims
 
-	// Target Maximum dimensions for the thumbnail
+	// Target Maximum dimensions for the thumbnail.
+	// Default to 150x150, if unset.
 	ThumbDims Dims
 
 	// MIME types to accept for thumbnailing.
 	// If nil, all MIME types will be processed.
+	//
+	// To process MIME types that are a subset of archive files, like
+	// "application/x-cbz", "application/x-cbr", "application/x-cb7" and
+	// "application/x-cbt", you must accept the corresponding archive type
+	// such as "application/zip" or leave this nil.
 	AcceptedMimeTypes map[string]bool
 }
 
@@ -61,42 +66,61 @@ type Options struct {
 func Process(rs io.ReadSeeker, opts Options) (
 	src Source, thumb image.Image, err error,
 ) {
+	if opts.ThumbDims.Width == 0 {
+		opts.ThumbDims.Width = 150
+	}
+	if opts.ThumbDims.Height == 0 {
+		opts.ThumbDims.Height = 150
+	}
+
 	src.Mime, src.Extension, err = DetectMIME(rs, opts.AcceptedMimeTypes)
 	if err != nil {
 		return
 	}
-
-	override := overrideProcessors[src.Mime]
-	if override != nil {
-		thumb, err = override(rs, &src, opts)
+	_, err = rs.Seek(0, 0)
+	if err != nil {
 		return
 	}
 
 	// TODO: PDF Processing
 	// TODO: SVG processing
 
-	switch src.Mime {
-	case
-		"image/jpeg",
-		"image/png",
-		"image/gif",
-		"image/webp",
-		"application/ogg",
-		"video/webm",
-		"video/x-matroska",
-		"video/mp4",
-		"video/avi",
-		"video/quicktime",
-		"video/x-ms-wmv",
-		"video/x-flv",
-		"audio/mpeg",
-		"audio/aac",
-		"audio/wave",
-		"audio/x-flac",
-		"audio/midi":
-		thumb, err = processMedia(rs, &src, opts)
-	default:
-		err = ErrUnsupportedMIME(src.Mime)
+	var fn Processor
+
+	override := overrideProcessors[src.Mime]
+	if override != nil {
+		fn = override
+	} else {
+		switch src.Mime {
+		case
+			"image/jpeg",
+			"image/png",
+			"image/gif",
+			"image/webp",
+			"application/ogg",
+			"video/webm",
+			"video/x-matroska",
+			"video/mp4",
+			"video/avi",
+			"video/quicktime",
+			"video/x-ms-wmv",
+			"video/x-flv",
+			"audio/mpeg",
+			"audio/aac",
+			"audio/wave",
+			"audio/x-flac",
+			"audio/midi":
+			fn = processMedia
+		case mimeZip:
+			fn = processZip
+		case mimeRar:
+			fn = processRar
+		default:
+			err = ErrUnsupportedMIME(src.Mime)
+			return
+		}
 	}
+
+	thumb, err = fn(rs, &src, opts)
 	return
 }

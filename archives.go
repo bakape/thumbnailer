@@ -110,6 +110,10 @@ func processZip(rs io.ReadSeeker, src *Source, opts Options,
 
 // Returns, if file could be an image file, based on it's extension
 func couldBeImage(name string) bool {
+	if len(name) < 4 {
+		return false
+	}
+	name = strings.ToLower(name[len(name)-4:])
 	for _, ext := range [...]string{".png", ".jpg", ".jpeg", ".webp"} {
 		if strings.HasSuffix(name, ext) {
 			return true

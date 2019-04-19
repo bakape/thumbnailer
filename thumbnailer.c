@@ -93,8 +93,8 @@ static void alloc_buffer(struct Buffer* dst)
     dst->data = malloc(dst->size);
 }
 
-// Use point subsampling to scale image up to 4 times thumbnail size
-static int upsample(struct Buffer* dst, const AVFrame const* frame)
+// Use point subsampling to scale image up to target size and convert to RGBA
+static int resample(struct Buffer* dst, const AVFrame const* frame)
 {
     struct SwsContext* ctx
         = sws_getContext(frame->width, frame->height, frame->format, dst->width,
@@ -119,7 +119,7 @@ struct Pixel {
     uint16_t r, g, b, a;
 };
 
-// Downscale upsampled image
+// Downscale resampled image
 static void downscale(struct Buffer* dst, const struct Buffer const* src)
 {
     alloc_buffer(dst);
@@ -136,9 +136,7 @@ static void downscale(struct Buffer* dst, const struct Buffer const* src)
 
             // Skip pixels with maxed transparency
             const uint8_t alpha = src->data[i + 3];
-            if (alpha == 0) {
-                p->a += alpha;
-            } else {
+            if (alpha != 0) {
                 // Unrolled for less data dependency
                 p->r += src->data[i];
                 p->g += src->data[i + 1];
@@ -166,16 +164,52 @@ static void downscale(struct Buffer* dst, const struct Buffer const* src)
     }
 }
 
+// Decrease intensity of pixels with alpha
+static void compensate_alpha(struct Buffer* img)
+{
+    int i = 0;
+    for (int y = 0; y < img->height; y++) {
+        for (int x = 0; x < img->width; x++) {
+            const uint8_t alpha = img->data[i + 3];
+            if (alpha != 255) {
+                const float scale = (float)alpha / (float)255;
+                for (int j = 0; j < 3; j++) {
+                    float val = (float)img->data[i + j] * scale;
+                    if (val > 255) {
+                        val = 255;
+                    }
+                    img->data[i + j] = (uint8_t)val;
+                }
+            }
+            i += 4;
+        }
+    }
+}
+
 // Encode and scale frame to RGBA image
 static int encode_frame(
-    struct Buffer* img, AVFrame* frame, const struct Dims thumb_dims)
+    struct Buffer* img, AVFrame* frame, const struct Dims box)
 {
+    int err;
+
+    // If image fits inside thumbnail, simply convert to RGBA
+    if (frame->width <= box.width && frame->height <= box.height) {
+        img->width = frame->width;
+        img->height = frame->height;
+        err = resample(img, frame);
+        if (err) {
+            return err;
+        }
+        compensate_alpha(img);
+        return 0;
+    }
+
     // Maintain aspect ratio
     double scale;
     if (frame->width >= frame->height) {
-        scale = (double)(frame->width) / (double)(thumb_dims.width);
+        scale = (double)(frame->width) / (double)(box.width);
     } else {
-        scale = (double)(frame->height) / (double)(thumb_dims.height);
+        scale = (double)(frame->height) / (double)(box.height);
     }
     img->width = (unsigned long)((double)frame->width / scale);
     img->height = (unsigned long)((double)frame->height / scale);
@@ -185,7 +219,7 @@ static int encode_frame(
     // around the thumbnail size and much bigger ones.
     struct Buffer enlarged
         = { .width = img->width * 4, .height = img->height * 4 };
-    int err = upsample(&enlarged, frame);
+    err = resample(&enlarged, frame);
     if (err) {
         return err;
     }

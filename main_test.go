@@ -43,6 +43,7 @@ var samples = [...]string{
 	"invalid_data.jpg", // Check handling images with some invalid data
 	"sample.zip",
 	"sample.rar",
+	"too small.png",
 }
 
 var ignore = map[string]bool{

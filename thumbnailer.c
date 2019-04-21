@@ -192,8 +192,11 @@ static int encode_frame(
 {
     int err;
 
-    // If image fits inside thumbnail, simply convert to RGBA
-    if (frame->width <= box.width && frame->height <= box.height) {
+    // If image fits inside thumbnail, simply convert to RGBA.
+    //
+    // This does not work, if image size is exactly that of the target thumbnail
+    // size. Perhaps a peculiarity of sws_scale().
+    if (frame->width < box.width && frame->height < box.height) {
         img->width = frame->width;
         img->height = frame->height;
         err = resample(img, frame);

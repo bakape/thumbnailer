@@ -44,6 +44,7 @@ var samples = [...]string{
 	"sample.zip",
 	"sample.rar",
 	"too small.png",
+	"exact_thumb_size.jpg",
 }
 
 var ignore = map[string]bool{

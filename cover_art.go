@@ -29,9 +29,22 @@ func (c *FFContext) CoverArt() []byte {
 func processCoverArt(buf []byte, opts Options) (thumb image.Image, err error) {
 	// Accept anything processable for cover art
 	opts.AcceptedMimeTypes = nil
+
 	_, thumb, err = Process(bytes.NewReader(buf), opts)
-	if err != nil {
-		err = ErrCoverArt{err}
+
+	// Propagate allowed failure errors for retry on the container itself
+	// and wrap all other errors.
+	switch err {
+	case nil:
+	case ErrTooWide, ErrTooTall, ErrCantThumbnail, ErrGetFrame:
+		err = ErrCantThumbnail
+	default:
+		switch err.(type) {
+		case ErrUnsupportedMIME, ErrInvalidImage:
+			err = ErrCantThumbnail
+		default:
+			err = ErrCoverArt{err}
+		}
 	}
 	return
 }

@@ -5,6 +5,20 @@ import (
 	"fmt"
 )
 
+// Thumbnailing errors
+var (
+	ErrTooWide             = ErrInvalidImage("image too wide")
+	ErrTooTall             = ErrInvalidImage("image too tall")
+	ErrThumbnailingUnknown = errors.New("unknown thumbnailing error")
+
+	// ErrCantThumbnail denotes the input file was valid but no thumbnail could
+	// be generated for it (example: audio file with no cover art).
+	ErrCantThumbnail = errors.New("thumbnail can't be generated")
+
+	// ErrGetFrame denotes an unknown failure to retrieve a video frame
+	ErrGetFrame = errors.New("failed to get frame")
+)
+
 // Indicates the MIME type of the file could not be detected as a supported type
 // or was not in the AcceptedMimeTypes list, if defined.
 type ErrUnsupportedMIME string
@@ -12,13 +26,6 @@ type ErrUnsupportedMIME string
 func (e ErrUnsupportedMIME) Error() string {
 	return fmt.Sprintf("unsupported MIME type: %s", string(e))
 }
-
-// Thumbnailing errors
-var (
-	ErrTooWide             = ErrInvalidImage("image too wide")
-	ErrTooTall             = ErrInvalidImage("image too tall")
-	ErrThumbnailingUnknown = errors.New("unknown thumbnailing error")
-)
 
 // Indicates and invalid image has been passed for processing
 type ErrInvalidImage string

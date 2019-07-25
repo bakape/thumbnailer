@@ -13,7 +13,7 @@ main.go:Process().
 * make
 * pkg-config
 * pthread
-* ffmpeg >= 3.1 libraries (libavcodec, libavutil, libavformat, libswscale)
+* ffmpeg 3.2 / 4.1+ libraries (libavcodec, libavutil, libavformat, libswscale)
 
 NB: ffmpeg should be compiled with all the dependency libraries for
 formats you want to process. On most Linux distributions you should be fine with

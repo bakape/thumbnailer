@@ -34,7 +34,7 @@ func (c *FFContext) Thumbnail(dims Dims) (thumb image.Image, err error) {
 		})
 	switch {
 	case ret != 0:
-		err = ffError(ret)
+		err = castError(ret)
 	case img.data == nil:
 		err = ErrGetFrame
 	default:

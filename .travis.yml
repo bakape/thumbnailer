@@ -1,4 +1,4 @@
 services: docker
 script:
   - docker build -t thumbnailer_test .
-  - docker run thumbnailer_test go test --race
+  - docker run --rm thumbnailer_test go test --race

@@ -92,23 +92,6 @@ type codecInfo struct {
 	ctx    *C.AVCodecContext
 }
 
-// ffError converts an FFmpeg error code to a Go error with a human-readable
-// error message
-type ffError C.int
-
-// Error formats the FFmpeg error in human-readable format
-func (f ffError) Error() string {
-	buf := C.malloc(1024)
-	defer C.free(buf)
-	C.av_strerror(C.int(f), (*C.char)(buf), 1024)
-	return fmt.Sprintf("ffmpeg: %s", C.GoString((*C.char)(buf)))
-}
-
-// Code returns the underlying FFmpeg error code
-func (f ffError) Code() C.int {
-	return C.int(f)
-}
-
 // FFContext is a wrapper for passing Go I/O interfaces to C
 type FFContext struct {
 	avFormatCtx *C.struct_AVFormatContext
@@ -139,7 +122,7 @@ func newFFContextWithFormat(rs io.ReadSeeker, inputFormat *C.char,
 	err := C.create_context(&this.avFormatCtx, inputFormat)
 	if err < 0 {
 		this.Close()
-		return nil, ffError(err)
+		return nil, castError(err)
 	}
 	if this.avFormatCtx == nil {
 		this.Close()
@@ -180,7 +163,7 @@ func (c *FFContext) codecContext(typ FFMediaType) (codecInfo, error) {
 	case err == C.AVERROR_STREAM_NOT_FOUND:
 		return codecInfo{}, ErrStreamNotFound
 	case err < 0:
-		return codecInfo{}, ffError(err)
+		return codecInfo{}, castError(err)
 	}
 
 	ci := codecInfo{
@@ -192,16 +175,12 @@ func (c *FFContext) codecContext(typ FFMediaType) (codecInfo, error) {
 }
 
 // CodecName returns the codec name of the best stream of type typ
-func (c *FFContext) CodecName(typ FFMediaType) (string, error) {
+func (c *FFContext) CodecName(typ FFMediaType) (codec string, err error) {
 	ci, err := c.codecContext(typ)
-	if err == nil {
-		return C.GoString(ci.ctx.codec.name), nil
+	if err != nil {
+		return
 	}
-	fferr, ok := err.(ffError)
-	if ok && fferr.Code() == C.AVERROR_STREAM_NOT_FOUND {
-		err = ErrStreamNotFound
-	}
-	return "", err
+	return C.GoString(ci.ctx.codec.name), nil
 }
 
 // HasStream returns, if the file has a decodeable stream of the passed type

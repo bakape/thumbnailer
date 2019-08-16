@@ -30,9 +30,6 @@ var (
 		m: make(map[uintptr]io.ReadSeeker),
 	}
 
-	// ErrStreamNotFound denotes no steam of this media type was found
-	ErrStreamNotFound = errors.New("no stream of this type found")
-
 	// Input format specifiers for FFmpeg. These save FFmpeg some overhead on
 	// format detection and also prevent failure to open input on format
 	// detection failure.

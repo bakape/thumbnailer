@@ -20,6 +20,9 @@ var (
 
 	// ErrGetFrame denotes an unknown failure to retrieve a video frame
 	ErrGetFrame = errors.New("failed to get frame")
+
+	// ErrStreamNotFound denotes no steam of this media type was found
+	ErrStreamNotFound = errors.New("no stream of this type found")
 )
 
 // Indicates the MIME type of the file could not be detected as a supported type
@@ -64,23 +67,23 @@ func castError(err C.int) error {
 	case C.AVERROR_STREAM_NOT_FOUND:
 		return ErrStreamNotFound
 	default:
-		return ffError(err)
+		return AVError(err)
 	}
 }
 
-// ffError converts an FFmpeg error code to a Go error with a human-readable
+// AVError converts an FFmpeg error code to a Go error with a human-readable
 // error message
-type ffError C.int
+type AVError C.int
 
 // Error formats the FFmpeg error in human-readable format
-func (f ffError) Error() string {
+func (f AVError) Error() string {
 	buf := C.malloc(1024)
 	defer C.free(buf)
 	C.av_strerror(C.int(f), (*C.char)(buf), 1024)
 	return fmt.Sprintf("ffmpeg: %s", C.GoString((*C.char)(buf)))
 }
 
-// Code returns the underlying FFmpeg error code
-func (f ffError) Code() C.int {
+// Code returns the underlying AVERROR error code
+func (f AVError) Code() C.int {
 	return C.int(f)
 }

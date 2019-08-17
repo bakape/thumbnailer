@@ -26,3 +26,10 @@ cross_tests_windows:
 	PKG_CONFIG_PATH=$(MXE_ROOT)/$(MXE_TARGET)/lib/pkgconfig \
 	go test -a -c -o test.exe --ldflags '-extldflags "-static"'
 	wine ./test.exe
+
+test:
+	go test --race
+
+test_docker:
+	docker build -t thumbnailer_test .
+	docker run --rm thumbnailer_test go test --race

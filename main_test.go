@@ -19,6 +19,7 @@ var samples = [...]string{
 	"no_cover.ogg",
 	"no_sound.mov",
 	"no_sound.webm",
+	"with_sound_vp9.webm",
 	"sample.jpg",
 	"with_cover.mp3",
 	"with_sound.mkv",

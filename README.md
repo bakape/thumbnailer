@@ -15,6 +15,18 @@ main.go:Process().
 * pthread
 * ffmpeg 3.2 / 4.1+ libraries (libavcodec, libavutil, libavformat, libswscale)
 
-NB: ffmpeg should be compiled with all the dependency libraries for
-formats you want to process. On most Linux distributions you should be fine with
+NB:
+* ffmpeg should be compiled with all the dependency libraries for formats you
+want to process. On most Linux distributions you should be fine with
 the packages in the stock repositories.
+* Ubuntu patches to ffmpeg on some Ubuntu versions break this library.
+If running on Ubuntu, please compile from unmodified ffmpeg sources using:
+
+```
+sudo apt build-dep ffmpeg
+git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
+cd ffmpeg
+git checkout n4.1
+./configure
+make -j`nproc`
+```

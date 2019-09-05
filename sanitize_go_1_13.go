@@ -11,6 +11,6 @@ import (
 // Strings passed from C are not guaranteed to be valid.
 func sanitize(s *string) {
 	if !utf8.ValidString(*s) {
-		*s = strings.ToValidUTF8(*s, string(rune(-1)))
+		*s = strings.ToValidUTF8(*s, string(utf8.RuneError))
 	}
 }

@@ -13,7 +13,7 @@ main.go:Process().
 * make
 * pkg-config
 * pthread
-* ffmpeg 3.2 / 4.1+ libraries (libavcodec, libavutil, libavformat, libswscale)
+* ffmpeg 3.2 libraries (libavcodec, libavutil, libavformat, libswscale)
 
 NB:
 * ffmpeg should be compiled with all the dependency libraries for formats you

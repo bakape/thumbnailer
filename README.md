@@ -20,7 +20,7 @@ NB:
 want to process. On most Linux distributions you should be fine with
 the packages in the stock repositories.
 * Ubuntu patches to ffmpeg on some Ubuntu versions <19.10 break this library.
-If running on Ubuntu, please compile from unmodified ffmpeg sources using:
+In this case, please compile from unmodified ffmpeg sources using:
 
 ```
 sudo apt build-dep ffmpeg

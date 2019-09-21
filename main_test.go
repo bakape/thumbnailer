@@ -46,6 +46,7 @@ var samples = [...]string{
 	"sample.rar",
 	"too small.png",
 	"exact_thumb_size.jpg",
+	"meta_segfault.mp4",
 }
 
 var ignore = map[string]bool{

@@ -5,7 +5,10 @@ struct Meta retrieve_meta(AVFormatContext* ctx)
 {
     AVDictionary* meta = ctx->metadata;
     AVDictionaryEntry* tag;
-    struct Meta meta_out = {.title = NULL, .artist = NULL };
+    struct Meta meta_out = { .title = NULL, .artist = NULL };
+    if (!meta) {
+        return meta_out;
+    }
 
     tag = av_dict_get(meta, "title", NULL, 0);
     if (tag != NULL) {

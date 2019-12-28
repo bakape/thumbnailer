@@ -4,11 +4,11 @@
 struct Buffer {
     uint8_t* data;
     size_t size;
-    unsigned long width, height;
+    uint32_t width, height;
 };
 
 struct Dims {
-    unsigned long width, height;
+    uint32_t width, height;
 };
 
 // Writes RGBA thumbnail buffer to img

@@ -29,8 +29,8 @@ func (c *FFContext) Thumbnail(dims Dims) (thumb image.Image, err error) {
 	}()
 	ret := C.generate_thumbnail(&img, c.avFormatCtx, ci.ctx, ci.stream,
 		C.struct_Dims{
-			width:  C.ulong(dims.Width),
-			height: C.ulong(dims.Height),
+			width:  C.uint32_t(dims.Width),
+			height: C.uint32_t(dims.Height),
 		})
 	switch {
 	case ret != 0:

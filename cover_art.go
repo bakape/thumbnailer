@@ -22,7 +22,7 @@ func (c *FFContext) CoverArt() []byte {
 	defer C.free(unsafe.Pointer(img.data))
 	return copyCBuffer(C.struct_Buffer{
 		data: img.data,
-		size: C.ulong(img.size),
+		size: C.size_t(img.size),
 	})
 }
 

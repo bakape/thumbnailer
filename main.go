@@ -122,5 +122,13 @@ func Process(rs io.ReadSeeker, opts Options) (
 	}
 
 	thumb, err = fn(rs, &src, opts)
+	switch src.Mime {
+	case "image/jpeg",
+		"image/png",
+		"image/gif",
+		"image/webp":
+		// FFmpeg considers images to be video for processing reasons
+		src.HasVideo = false
+	}
 	return
 }

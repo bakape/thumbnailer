@@ -14,7 +14,8 @@ func sanitize(s *string) {
 		*s = strings.Map(
 			func(r rune) rune {
 				if r == utf8.RuneError {
-					return -1
+					// Need to replace invalid UTF-8 with a valid UTF-8 marker
+					return '?'
 				}
 				return r
 			},

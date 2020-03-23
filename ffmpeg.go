@@ -211,12 +211,20 @@ func (c *FFContext) Dims() (dims Dims, err error) {
 	return
 }
 
+func castIOError(err error) C.int {
+	// Properly pass EOF to FFmpeg
+	if err == io.EOF {
+		return C.AVERROR_EOF
+	}
+	return -1
+}
+
 //export readCallBack
 func readCallBack(opaque unsafe.Pointer, buf *C.uint8_t, bufSize C.int) C.int {
 	s := (*[1 << 30]byte)(unsafe.Pointer(buf))[:bufSize:bufSize]
 	n, err := handlersMap.Get(opaque).Read(s)
 	if err != nil {
-		return -1
+		return castIOError(err)
 	}
 	return C.int(n)
 }
@@ -229,7 +237,7 @@ func seekCallBack(
 ) C.int64_t {
 	n, err := handlersMap.Get(opaque).Seek(int64(offset), int(whence))
 	if err != nil {
-		return -1
+		return C.int64_t(castIOError(err))
 	}
 	return C.int64_t(n)
 }

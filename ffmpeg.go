@@ -223,7 +223,7 @@ func castIOError(err error) C.int {
 func readCallBack(opaque unsafe.Pointer, buf *C.uint8_t, bufSize C.int) C.int {
 	s := (*[1 << 30]byte)(unsafe.Pointer(buf))[:bufSize:bufSize]
 	n, err := handlersMap.Get(opaque).Read(s)
-	if err != nil {
+	if err != nil && !(err == io.EOF && n != 0) {
 		return castIOError(err)
 	}
 	return C.int(n)

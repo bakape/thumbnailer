@@ -39,7 +39,6 @@ var samples = [...]string{
 	"odd_dimensions.webm", // Unconventional dims for a YUV stream
 	"alpha.webm",
 	"start_black.webm", // Check the histogram thumbnailing
-	"exif_orientation.jpg",
 	"rare_brand.mp4",
 	"invalid_data.jpg", // Check handling images with some invalid data
 	"sample.zip",
@@ -47,6 +46,16 @@ var samples = [...]string{
 	"too small.png",
 	"exact_thumb_size.jpg",
 	"meta_segfault.mp4",
+
+	// Exif rotation compensation
+	"jannu_baseline.jpg",
+	"jannu_h_mirrored.jpg",
+	"jannu_180.jpg",
+	"jannu_v_mirrored.jpg",
+	"jannu_270_h_mirrored.jpg",
+	"jannu_90.jpg",
+	"jannu_90_h_mirrored.jpg",
+	"jannu_270.jpg",
 }
 
 var ignore = map[string]bool{

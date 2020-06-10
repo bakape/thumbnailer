@@ -186,11 +186,159 @@ static void compensate_alpha(struct Buffer* img)
     }
 }
 
+// Swap 2 RGBA pixels by memory addresses
+static inline void swap_pixels(size_t a, size_t b)
+{
+    uint8_t tmp[4];
+    memcpy(&tmp, (void*)a, 4);
+    memcpy((void*)a, (void*)b, 4);
+    memcpy((void*)b, tmp, 4);
+}
+
+static void mirror_horizontally(struct Buffer* img)
+{
+    for (size_t y = 0; y < img->height; y++) {
+        size_t left = (size_t)img->data + y * img->width * 4;
+        size_t right = left + (img->width - 1) * 4;
+        for (size_t x = 0; x < img->width / 2; x++) {
+            swap_pixels(left, right);
+            left += 4;
+            right -= 4;
+        }
+    }
+}
+
+static void mirror_vertically(struct Buffer* img)
+{
+    const size_t row_size = img->width * 4;
+
+    for (size_t y = 0; y < img->height / 2; y++) {
+        size_t top = (size_t)img->data + row_size * y;
+        size_t bottom = (size_t)img->data + row_size * (img->height - 1 - y);
+        for (size_t x = 0; x < img->width; x++) {
+            swap_pixels(top, bottom);
+            top += 4;
+            bottom += 4;
+        }
+    }
+}
+
+// Rotate an image by 180 degrees
+static void rotate_180(struct Buffer* img)
+{
+    const size_t row_size = img->width * 4;
+
+    for (size_t y = 0; y < img->height / 2; y++) {
+        size_t top = (size_t)img->data + row_size * y;
+        size_t bottom = (size_t)img->data + row_size * (img->height - y) - 4;
+        for (size_t x = 0; x < img->width; x++) {
+            swap_pixels(top, bottom);
+            top += 4;
+            bottom -= 4;
+        }
+    }
+
+    if (img->height % 2) {
+        const size_t off = (size_t)img->data + row_size * img->height / 2;
+        for (int x = 0; x < img->width / 2; x++) {
+            swap_pixels(off + x * 4, off + (img->width - x - 1) * 4);
+        }
+    }
+}
+
+// Swap buffers and dimensions after a 90 degree rotation in any direction
+static void finish_90_rotation(struct Buffer* img, uint8_t* out)
+{
+    free(img->data);
+    img->data = out;
+    uint32_t tmp = img->width;
+    img->width = img->height;
+    img->height = tmp;
+}
+
+// Copy RGBA pixel from src to dst
+static inline void copy_pixel(size_t dst, size_t src)
+{
+    memcpy((void*)dst, (void*)src, 4);
+}
+
+// Rotate an image by 90 degrees clockwise
+static void rotate_90(struct Buffer* img)
+{
+    uint8_t* out = malloc(img->size);
+
+    size_t src = (size_t)img->data;
+    for (size_t y = 0; y < img->height; y++) {
+        for (size_t x = 0; x < img->width; x++) {
+            copy_pixel(
+                (size_t)out + img->height * 4 * x + (img->height - y - 1) * 4,
+                src);
+            src += 4;
+        }
+    }
+
+    finish_90_rotation(img, out);
+}
+
+// Rotate an image by 270 degrees clockwise
+static void rotate_270(struct Buffer* img)
+{
+    uint8_t* out = malloc(img->size);
+
+    size_t src = (size_t)img->data;
+    for (size_t y = 0; y < img->height; y++) {
+        for (size_t x = 0; x < img->width; x++) {
+            copy_pixel(
+                (size_t)out + img->height * 4 * (img->width - x - 1) + y * 4,
+                src);
+            src += 4;
+        }
+    }
+
+    finish_90_rotation(img, out);
+}
+
+// Rotate or flip according to exif orientation as the thumbnail does not have
+// any metadata
+static void adjust_orientation(struct Buffer* img, const int orientation)
+{
+    switch (orientation) {
+    case 2:
+        mirror_horizontally(img);
+        break;
+    case 3:
+        rotate_180(img);
+        break;
+    case 4:
+        mirror_vertically(img);
+        break;
+    case 7:
+        mirror_horizontally(img);
+    case 6:
+        rotate_90(img);
+        break;
+    case 5:
+        mirror_horizontally(img);
+    case 8:
+        rotate_270(img);
+        break;
+    }
+}
+
 // Encode and scale frame to RGBA image
 static int encode_frame(
     struct Buffer* img, AVFrame* frame, const struct Dims box)
 {
     int err;
+
+    int orientation = 0;
+    if (frame->metadata) {
+        AVDictionaryEntry* e
+            = av_dict_get(frame->metadata, "Orientation", NULL, 0);
+        if (e) {
+            orientation = atol(e->value);
+        }
+    }
 
     // If image fits inside thumbnail, simply convert to RGBA.
     //
@@ -204,6 +352,7 @@ static int encode_frame(
             return err;
         }
         compensate_alpha(img);
+        adjust_orientation(img, orientation);
         return 0;
     }
 
@@ -228,6 +377,7 @@ static int encode_frame(
     }
     downscale(img, &enlarged);
     free(enlarged.data);
+    adjust_orientation(img, orientation);
     return err;
 }
 

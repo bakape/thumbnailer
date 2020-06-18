@@ -325,6 +325,17 @@ static void adjust_orientation(struct Buffer* img, const int orientation)
     }
 }
 
+// Scale both image dimensions to fit in constraint, if it is exceeded
+static void scale_dims(struct Buffer* img, uint32_t max, uint32_t val)
+{
+    if (val > max) {
+        // Maintains aspect ratio
+        const double scale = (double)val / (double)max;
+        img->width = (uint32_t)((double)img->width / scale);
+        img->height = (uint32_t)((double)img->height / scale);
+    }
+}
+
 // Encode and scale frame to RGBA image
 static int encode_frame(
     struct Buffer* img, AVFrame* frame, const struct Dims box)
@@ -340,13 +351,14 @@ static int encode_frame(
         }
     }
 
+    img->width = frame->width;
+    img->height = frame->height;
+
     // If image fits inside thumbnail, simply convert to RGBA.
     //
     // This does not work, if image size is exactly that of the target thumbnail
     // size. Perhaps a peculiarity of sws_scale().
-    if (frame->width < box.width && frame->height < box.height) {
-        img->width = frame->width;
-        img->height = frame->height;
+    if (img->width < box.width && img->height < box.height) {
         err = resample(img, frame);
         if (err) {
             return err;
@@ -356,15 +368,8 @@ static int encode_frame(
         return 0;
     }
 
-    // Maintain aspect ratio
-    double scale;
-    if (frame->width >= frame->height) {
-        scale = (double)(frame->width) / (double)(box.width);
-    } else {
-        scale = (double)(frame->height) / (double)(box.height);
-    }
-    img->width = (unsigned long)((double)frame->width / scale);
-    img->height = (unsigned long)((double)frame->height / scale);
+    scale_dims(img, box.width, img->width);
+    scale_dims(img, box.height, img->height);
 
     // Subsample to 4 times the thumbnail size and then Box subsample that.
     // A decent enough compromise between quality and performance for images

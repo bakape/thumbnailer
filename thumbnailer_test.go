@@ -1,6 +1,9 @@
 package thumbnailer
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestDimensionValidation(t *testing.T) {
 	t.Parallel()
@@ -55,6 +58,72 @@ func TestDimensionValidation(t *testing.T) {
 			if err != c.err {
 				t.Fatalf("unexpected error: `%s` : `%s`", c.err, err)
 			}
+		})
+	}
+}
+
+func TestDimensionConstraints(t *testing.T) {
+	t.Parallel()
+
+	cases := [...]struct {
+		name   string
+		constr Dims
+	}{
+		{
+			name: "square",
+			constr: Dims{
+				Width:  200,
+				Height: 200,
+			},
+		},
+		{
+			name: "rect tall",
+			constr: Dims{
+				Width:  100,
+				Height: 200,
+			},
+		},
+		{
+			name: "rect wide",
+			constr: Dims{
+				Width:  200,
+				Height: 100,
+			},
+		},
+	}
+
+	for i := range cases {
+		c := cases[i]
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := openSample(t, "non_square.png")
+			defer f.Close()
+
+			_, thumb, err := Process(f, Options{
+				ThumbDims: c.constr,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			m := thumb.Bounds().Max
+			if uint(m.X) > c.constr.Width || uint(m.Y) > c.constr.Height {
+				t.Fatalf(
+					"thumbnail exceeds bounds: %+v not inside  %+v",
+					m,
+					c.constr,
+				)
+			}
+
+			writeSample(
+				t,
+				fmt.Sprintf(
+					"non_square.png_%dx%d_thumb.png",
+					c.constr.Width, c.constr.Height,
+				),
+				thumb,
+			)
 		})
 	}
 }

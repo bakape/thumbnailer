@@ -127,3 +127,20 @@ func TestDimensionConstraints(t *testing.T) {
 		})
 	}
 }
+
+func TestStackOverflow(t *testing.T) {
+	t.Parallel()
+
+	f := openSample(t, "segfault.png")
+	defer f.Close()
+
+	_, _, err := Process(f, Options{
+		ThumbDims: Dims{
+			Width:  800,
+			Height: 1700,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

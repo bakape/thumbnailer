@@ -103,7 +103,6 @@ static int resample(struct Buffer* dst, const AVFrame const* frame)
         return AVERROR(ENOMEM);
     }
 
-    alloc_buffer(dst);
     uint8_t* dst_data[1] = { dst->data }; // RGB have one plane
     int dst_linesize[1] = { 4 * dst->width }; // RGBA stride
 
@@ -122,11 +121,10 @@ struct Pixel {
 // Downscale resampled image
 static void downscale(struct Buffer* dst, const struct Buffer const* src)
 {
-    alloc_buffer(dst);
-
     // First sum all pixels into a multidimensional array
-    struct Pixel img[dst->height][dst->width];
-    memset(img, 0, dst->height * dst->width * sizeof(struct Pixel));
+    const size_t size = dst->height * dst->width * sizeof(struct Pixel);
+    struct Pixel(*img)[dst->width] = malloc(size);
+    memset(img, 0, size);
 
     int i = 0;
     for (int y = 0; y < src->height; y++) {
@@ -359,6 +357,7 @@ static int encode_frame(
     // This does not work, if image size is exactly that of the target thumbnail
     // size. Perhaps a peculiarity of sws_scale().
     if (img->width < box.width && img->height < box.height) {
+        alloc_buffer(img);
         err = resample(img, frame);
         if (err) {
             return err;
@@ -376,10 +375,13 @@ static int encode_frame(
     // around the thumbnail size and much bigger ones.
     struct Buffer enlarged
         = { .width = img->width * 4, .height = img->height * 4 };
+    alloc_buffer(&enlarged);
     err = resample(&enlarged, frame);
     if (err) {
+        free(enlarged.data);
         return err;
     }
+    alloc_buffer(img);
     downscale(img, &enlarged);
     free(enlarged.data);
     adjust_orientation(img, orientation);

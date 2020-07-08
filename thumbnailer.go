@@ -62,8 +62,6 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 	}
 	defer c.Close()
 
-	// TODO: EXIF orientation
-
 	src.Length = c.Length()
 	src.Meta = c.Meta()
 	src.HasAudio, err = c.HasStream(FFAudio)

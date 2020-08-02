@@ -1,0 +1,7 @@
+.git
+.vscode
+testdata/*thumb.*
+.directory
+debug.test
+thumbnailer.test
+test.exe

@@ -237,7 +237,7 @@ static void rotate_180(struct Buffer* img)
     }
 
     if (img->height % 2) {
-        const size_t off = (size_t)img->data + row_size * img->height / 2;
+        const size_t off = (size_t)img->data + row_size * (img->height / 2);
         for (int x = 0; x < img->width / 2; x++) {
             swap_pixels(off + x * 4, off + (img->width - x - 1) * 4);
         }

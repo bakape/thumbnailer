@@ -32,4 +32,10 @@ test:
 
 test_docker:
 	docker build -t thumbnailer_test .
-	docker run --rm thumbnailer_test go test --race
+	docker run \
+		--mount type=bind,source="$(PWD)"/testdata,target=/app/testdata \
+		--rm thumbnailer_test \
+		make clean test testdata_restore_permissions
+
+testdata_restore_permissions:
+	chown $(shell stat -c "%u:%g" testdata/alpha.webm) testdata/*

@@ -162,3 +162,23 @@ func TestSourceAlreadyThumbSize(t *testing.T) {
 		t.Errorf("unexpected height: 150: %d", dims.Y)
 	}
 }
+
+func TestUnprocessedLine(t *testing.T) {
+	t.Parallel()
+
+	const sample = "jannu_180.jpg"
+	f := openSample(t, sample)
+	defer f.Close()
+
+	_, thumb, err := Process(f, Options{
+		ThumbDims: Dims{
+			Width:  300,
+			Height: 300,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := fmt.Sprintf(`%s_to_300x300_thumb.png`, sample)
+	writeSample(t, name, thumb)
+}

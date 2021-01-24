@@ -27,6 +27,9 @@ var samples = [...]string{
 	"no_sound.avi",
 	"no_sound.mp4",
 	"no_sound.wmv",
+	"no_sound_90.mp4",
+	"no_sound_180.mp4",
+	"no_sound_270.mp4",
 	"sample.webp",
 	"with_sound.mov",
 	"with_sound.webm",
@@ -36,6 +39,7 @@ var samples = [...]string{
 	"sample.png",
 	"with_cover.flac",
 	"with_sound.mp4",
+	"with_sound_90.mp4",
 	"odd_dimensions.webm", // Unconventional dims for a YUV stream
 	"alpha.webm",
 	"start_black.webm", // Check the histogram thumbnailing

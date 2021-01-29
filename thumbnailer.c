@@ -336,11 +336,10 @@ static void scale_dims(struct Buffer* img, uint32_t max, uint32_t val)
 
 // Encode and scale frame to RGBA image
 static int encode_frame(
-    struct Buffer* img, AVFrame* frame, const struct Dims box)
+    struct Buffer* img, AVFrame* frame, const struct Dims box, int orientation)
 {
     int err;
 
-    int orientation = 0;
     if (frame->metadata) {
         AVDictionaryEntry* e
             = av_dict_get(frame->metadata, "Orientation", NULL, 0);
@@ -457,8 +456,26 @@ int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
 
 end:
     if (size) {
+        int orientation = 0;
+        AVDictionaryEntry* e
+            = av_dict_get(avfc->streams[stream]->metadata, "rotate", NULL, 0);
+        if (e) {
+            switch (atol(e->value)) {
+            case 90:
+                orientation = 6;
+                break;
+            case 180:
+                orientation = 3;
+                break;
+            case 270:
+                orientation = 8;
+                break;
+            }
+        }
+
         // Ignore all read errors, if at least one frame read
-        err = encode_frame(img, select_best_frame(frames, size), thumb_dims);
+        err = encode_frame(
+            img, select_best_frame(frames, size), thumb_dims, orientation);
     }
 
     for (int i = 0; i < size; i++) {

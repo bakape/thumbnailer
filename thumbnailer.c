@@ -249,7 +249,7 @@ static void finish_90_rotation(struct Buffer* img, uint8_t* out)
 {
     free(img->data);
     img->data = out;
-    uint32_t tmp = img->width;
+    uint64_t tmp = img->width;
     img->width = img->height;
     img->height = tmp;
 }
@@ -324,13 +324,13 @@ static void adjust_orientation(struct Buffer* img, const int orientation)
 }
 
 // Scale both image dimensions to fit in constraint, if it is exceeded
-static void scale_dims(struct Buffer* img, uint32_t max, uint32_t val)
+static void scale_dims(struct Buffer* img, uint64_t max, uint64_t val)
 {
     if (val > max) {
         // Maintains aspect ratio
         const double scale = (double)val / (double)max;
-        img->width = (uint32_t)((double)img->width / scale);
-        img->height = (uint32_t)((double)img->height / scale);
+        img->width = (uint64_t)((double)img->width / scale);
+        img->height = (uint64_t)((double)img->height / scale);
     }
 }
 

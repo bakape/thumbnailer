@@ -48,7 +48,12 @@ type Options struct {
 	MaxSourceDims Dims
 
 	// Target Maximum dimensions for the thumbnail.
-	// Default to 150x150, if unset.
+	//
+	// This defines the bounding box of the thumbnail. The thumbnail will be
+	// scaled down until both dimensions fit the bounding box.
+	// To scale only by one dimension, specify the other as math.MaxUint32.
+	//
+	// Defaults to 150x150, if unset.
 	ThumbDims Dims
 
 	// MIME types to accept for thumbnailing.

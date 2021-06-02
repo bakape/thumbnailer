@@ -40,6 +40,7 @@ var samples = [...]string{
 	"with_cover.flac",
 	"with_sound.mp4",
 	"with_sound_90.mp4",
+	"with_sound_hevc.mp4",
 	"odd_dimensions.webm", // Unconventional dims for a YUV stream
 	"alpha.webm",
 	"start_black.webm", // Check the histogram thumbnailing

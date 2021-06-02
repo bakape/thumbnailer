@@ -25,6 +25,9 @@ type Source struct {
 	// Canonical file extension
 	Extension string
 
+	// Codec of the source file when applicable
+	Codec string
+
 	// Optional metadata
 	Meta
 }

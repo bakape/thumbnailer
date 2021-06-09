@@ -102,7 +102,10 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 			err = ErrTooTall
 			return
 		}
-
+		src.Codec, err = c.CodecName(FFVideo)
+		if err != nil {
+			return
+		}
 		thumb, err = c.Thumbnail(opts.ThumbDims)
 	} else {
 		err = ErrCantThumbnail

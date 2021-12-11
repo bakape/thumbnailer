@@ -4,6 +4,12 @@
 Package thumbnailer provides a more efficient media thumbnailer than available
 with native Go processing libraries through ffmpeg bindings.
 
+Use 
+```
+go get -u github.com/bakape/thumbnailer/v2
+```
+to install the library in your project. 
+
 For a comprehensive list of file formats supported by default see
 main.go:Process().
 

@@ -434,7 +434,7 @@ int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
     AVFrame* frames[MAX_FRAMES] = { NULL };
     AVFrame* next = NULL;
 
-    // Read up to 10 frames in 10 frame intervals
+    // Read up to 10 frames
     while (1) {
         next = av_frame_alloc();
         err = read_frame(avfc, avcc, next, stream);
@@ -442,8 +442,8 @@ int generate_thumbnail(struct Buffer* img, AVFormatContext* avfc,
             goto end;
         }
 
-        // Save only every 10th frame
-        if (!(i++ % 10)) {
+        // Analyze only every 3rd frame to cover a larger time frame
+        if (!(i++ % 3)) {
             frames[size++] = next;
             next = NULL;
             if (size == MAX_FRAMES) {

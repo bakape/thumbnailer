@@ -106,7 +106,11 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 		if err != nil {
 			return
 		}
-		thumb, err = c.Thumbnail(opts.ThumbDims)
+		if opts.UseSourceDims {
+			thumb, err = c.Thumbnail(src.Dims)	
+		} else {
+			thumb, err = c.Thumbnail(opts.ThumbDims)
+		}
 	} else {
 		err = ErrCantThumbnail
 	}

@@ -59,6 +59,9 @@ type Options struct {
 	// Defaults to 150x150, if unset.
 	ThumbDims Dims
 
+	// Use source video dimensions for the thumbnail.
+	UseSourceDims bool
+
 	// MIME types to accept for thumbnailing.
 	// If nil, all MIME types will be processed.
 	//

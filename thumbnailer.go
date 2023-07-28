@@ -106,9 +106,26 @@ func processMedia(rs io.ReadSeeker, src *Source, opts Options,
 		if err != nil {
 			return
 		}
-		thumb, err = c.Thumbnail(opts.ThumbDims)
+
+		var scaleDims Dims
+		if opts.UseSourceDims {
+			scaleDims = scaleDimensions(src.Dims, src.Dims.Width)
+		} else {
+			scaleDims = scaleDimensions(src.Dims, opts.ThumbDims.Width)
+		}
+		thumb, err = c.Thumbnail(scaleDims)
 	} else {
 		err = ErrCantThumbnail
 	}
 	return
+}
+
+func scaleDimensions(dims Dims, scaleToWidth uint) Dims {
+	if dims.Width == 0 {
+		return dims
+	}
+	factor := float64(scaleToWidth) / float64(dims.Width)
+	dims.Width = uint(float64(dims.Width) * factor)
+	dims.Height = uint(float64(dims.Height) * factor)
+	return dims
 }

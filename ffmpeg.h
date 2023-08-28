@@ -1,5 +1,6 @@
 #pragma once
 #include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
 #include <pthread.h>
 
 extern int readCallBack(void*, uint8_t*, int);

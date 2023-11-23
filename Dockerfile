@@ -15,9 +15,8 @@ RUN apt-get install -y \
 	libswscale-dev
 
 # Install Go
-RUN curl -s \
-	"https://dl.google.com/go/$(curl -s https://golang.org/VERSION?m=text).linux-amd64.tar.gz" \
-	| tar xpz -C /usr/local
+RUN GO_VERSION=$(curl -sSL "https://go.dev/VERSION?m=text" | awk 'NR==1{print $1}') && \
+    curl -sSL "https://dl.google.com/go/${GO_VERSION}.linux-amd64.tar.gz" | tar xpz -C /usr/local
 ENV PATH=$PATH:/usr/local/go/bin
 
 # Try to cache deps
